@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hörsaal VR</title>
+  <!-- Scene-Page: A-Frame Umgebung + DOM-Overlay UI + ADHS-Simulation -->
+  <script src="https://aframe.io/releases/1.7.1/aframe.min.js" defer></script> <!-- 3D Scene Engine (WebXR) -->
+  <script src="https://unpkg.com/aframe-troika-text/dist/aframe-troika-text.min.js" defer></script> <!-- scharfer Text in VR -->
+  <script src="https://aframe.io/releases/1.7.1/aframe-inspector.min.js" defer></script> <!-- Debug (optional) -->
+  <script src="vr.js" defer></script> <!-- Start-VR Button + PointerLock (Mouselook) -->
+  <!-- Unified App Entry: Bootstrap + Input + Overlay UI -->
+  <script type="module" src="app.js"></script>
+  <link rel="stylesheet" href="base.css">
+  <link rel="stylesheet" href="overlay.css">
+</head>
+<body class="scene-page">
+  <!-- Semantik: header (DOM-Overlay), main (A-Frame Scene), footer (Credits) -->
+  <header>
+  <div id="ui-overlay">
+    <!-- ==============================================
+         UI Overlay (DOM-Overlay in WebXR)
+         ============================================== -->
+    <button id="back-home" data-href="landingpage.html">Zurück</button>
+    <button id="start-vr">Start VR</button>
+
+    <!-- ADHS Simulation Steuerung -->
+    <div id="adhs-controls">
+      <h3>ADHS Simulation</h3>
+      <div class="intensity-display">
+        <strong>Intensität:</strong> <span id="adhs-level">Aus</span>
+      </div>
+      <hr>
+      <div class="keyboard-controls">
+        <strong>Steuerung:</strong><br>
+        <button id="adhs-btn-plus">+</button> <kbd>Q</kbd> (Level ↑)<br>
+        <button id="adhs-btn-minus">-</button> <kbd>W</kbd> (Level ↓)<br>
+        <button id="adhs-btn-toggle">O</button> <kbd>O</kbd> (Start/Stop)<br>
+        <button id="adhs-btn-givein">G</button> <kbd>G</kbd> (Nachgeben)<br>
+        <button id="adhs-btn-refocus">R</button> <kbd>R</kbd> (Refocus)
+      </div>
+    </div>
+  </div>
+  </header>
+
+  <main>
+  <!-- WebXR: DOM-Overlay wird hier nicht angefordert, um Warnungen bei nicht unterstützten Features zu vermeiden. -->
+    <a-scene id="scene-hoersaal" background="color: #f3f4f6" renderer="colorManagement: true; physicallyCorrectLights: true; exposure: 0.85; antialias: true">
+    <!-- ==============================================
+         A-Frame Assets (Texturen/Medien)
+         Hinweis: Groß-/Kleinschreibung ist wichtig (z.B. GitHub Pages).
+         ============================================== -->
+    <a-assets id="assets-hoersaal">
+      <img id="tex-floor" src="Assets/Textures/textures/floor.png" />
+      <img id="tex-wall-plaster" src="Assets/Textures/textures/painted_plaster_wall_disp_4k.png" />
+    </a-assets>
+
+      <a-sky color="#f3f4f6"></a-sky>
+
+        <!-- ==============================================
+          Licht
+          ============================================== -->
+    <a-entity id="ambient-light" light="type: ambient; intensity: 0.35"></a-entity>
+    <a-entity id="hemisphere-light" light="type: hemisphere; intensity: 0.45; color: #ffffff; groundColor: #bdbdbd"></a-entity>
+    <a-entity id="directional-light" light="type: directional; intensity: 0.65" position="2 6 5" rotation="-35 20 0"></a-entity>
+    <a-entity light="type: spot; intensity: 1.1; angle: 28; penumbra: 0.25; distance: 22" position="0 5.2 -2" rotation="-55 0 0"></a-entity>
+    <a-entity light="type: point; intensity: 0.35; distance: 14" position="-4 4.5 1"></a-entity>
+    <a-entity light="type: point; intensity: 0.35; distance: 14" position="4 4.5 1"></a-entity>
+
+    <!-- ==============================================
+         Raum (Boden/Decke/Wände)
+         ============================================== -->
+    <a-plane id="floorPlane" position="0 0 0" rotation="-90 0 0" width="18" height="14" src="#tex-floor" repeat="7 7"></a-plane>
+      <!-- Boden verwendet jetzt neue Textur -->
+    <a-plane id="ceilingPlane" position="0 5 0" rotation="90 0 0" width="18" height="14" color="#ffffff"></a-plane>
+
+    <a-plane id="backWall" position="0 2.5 7" rotation="0 180 0" width="18" height="5" src="#tex-wall-plaster" repeat="4 2"></a-plane>
+    <a-plane id="frontWall" position="0 2.5 -7" width="18" height="5" src="#tex-wall-plaster" repeat="4 2"></a-plane>
+    <a-plane id="rightWall" position="9 2.5 0" rotation="0 -90 0" width="14" height="5" src="#tex-wall-plaster" repeat="4 2"></a-plane>
+
+    <!-- Ausgangstür rechts (breit) -->
+    <a-entity id="exit-door-right" position="8.99 0 4.8" rotation="0 -90 0">
+      <!-- Öffnung / dunkler Durchgang -->
+      <a-plane position="0 1.3 0.01" width="3.6" height="2.6" material="color:#0b1220; shader:flat"></a-plane>
+
+      <!-- Rahmen -->
+      <a-box position="0 2.7 0.03" width="3.9" height="0.18" depth="0.22" color="#f2f2f2"></a-box>
+      <a-box position="0 0.05 0.03" width="3.9" height="0.18" depth="0.22" color="#f2f2f2"></a-box>
+      <a-box position="-1.95 1.35 0.03" width="0.18" height="2.8" depth="0.22" color="#f2f2f2"></a-box>
+      <a-box position="1.95 1.35 0.03" width="0.18" height="2.8" depth="0.22" color="#f2f2f2"></a-box>
+      <a-box position="0 1.35 0.03" width="0.14" height="2.8" depth="0.22" color="#f2f2f2"></a-box>
+
+      <!-- Türflügel (Glas) -->
+      <a-plane position="-0.95 1.3 0.08" width="1.7" height="2.35" material="color:#bde0fe; opacity:0.16; transparent:true"></a-plane>
+      <a-plane position="0.95 1.3 0.08" width="1.7" height="2.35" material="color:#bde0fe; opacity:0.16; transparent:true"></a-plane>
+
+      <!-- Griffe -->
+      <a-box position="-0.25 1.3 0.11" width="0.08" height="0.5" depth="0.04" color="#111827"></a-box>
+      <a-box position="0.25 1.3 0.11" width="0.08" height="0.5" depth="0.04" color="#111827"></a-box>
+
+      <!-- Schild -->
+      <a-plane position="0 3.05 0.09" width="1.6" height="0.45" material="color:#111827; shader:flat"></a-plane>
+      <a-text value="AUSGANG" position="0 3.05 0.10" width="4" align="center" color="#ffffff"></a-text>
+    </a-entity>
+
+    <!-- Fensterwand links -->
+    <a-entity id="window-wall-left" position="-8.99 2.5 0" rotation="0 90 0">
+      <!-- Ziel: wie eine echte Wand mit Fenstern (Wandrahmen + Brüstung + Sturz) -->
+
+      <!-- Brüstung (unten, Wandhöhe 5 => lokale Y: -2.5..2.5) -->
+      <a-plane position="0 -1.95 0" width="14" height="1.1" src="#tex-wall-plaster" repeat="4 1"></a-plane>
+
+      <!-- Wandstreifen links/rechts (damit es nicht wie ein Loch wirkt) -->
+      <a-box position="-6.55 0 0" width="0.9" height="5" depth="0.25" material="src:#tex-wall-plaster; repeat:1 2"></a-box>
+      <a-box position="6.55 0 0" width="0.9" height="5" depth="0.25" material="src:#tex-wall-plaster; repeat:1 2"></a-box>
+
+      <!-- Sturz oben -->
+      <a-box position="0 2.0 0" width="14" height="1" depth="0.25" material="src:#tex-wall-plaster; repeat:4 1"></a-box>
+
+      <!-- Fensterrahmen (sichtbare Kante, als echter Rahmen statt Vollblock) -->
+      <a-box position="0 1.35 0.02" width="12.8" height="0.18" depth="0.22" color="#f2f2f2"></a-box>
+      <a-box position="0 -1.25 0.02" width="12.8" height="0.18" depth="0.22" color="#f2f2f2"></a-box>
+      <a-box position="-6.31 0.05 0.02" width="0.18" height="2.8" depth="0.22" color="#f2f2f2"></a-box>
+      <a-box position="6.31 0.05 0.02" width="0.18" height="2.8" depth="0.22" color="#f2f2f2"></a-box>
+
+      <!-- Glas -->
+      <a-plane position="0 0.05 0.14" width="12.4" height="2.6" material="color:#bde0fe; opacity:0.14; transparent:true"></a-plane>
+
+      <!-- Sprossen (innen) -->
+      <a-box position="-2.07 0.05 0.12" width="0.06" height="2.7" depth="0.06" color="#f2f2f2"></a-box>
+      <a-box position="0 0.05 0.12" width="0.06" height="2.7" depth="0.06" color="#f2f2f2"></a-box>
+      <a-box position="2.07 0.05 0.12" width="0.06" height="2.7" depth="0.06" color="#f2f2f2"></a-box>
+      <a-box position="0 -0.85 0.12" width="12.6" height="0.06" depth="0.06" color="#f2f2f2"></a-box>
+      <a-box position="0 0.95 0.12" width="12.6" height="0.06" depth="0.06" color="#f2f2f2"></a-box>
+    </a-entity>
+
+    <!-- Draußen: Uni + Park (außerhalb des Hörsaals) -->
+    <a-entity id="outside" position="0 0 0">
+      <!-- Parkboden (nur außerhalb, x < -10) -->
+      <a-plane position="-19 0 0" rotation="-90 0 0" width="18" height="30" color="#2e8b57"></a-plane>
+
+      <!-- Weg -->
+      <a-plane position="-17 0.01 0" rotation="-90 0 0" width="3" height="26" color="#c2b280"></a-plane>
+
+      <!-- Uni-Gebäude -->
+      <a-entity position="-23 0 0">
+        <a-box position="0 2 0" width="10" height="4" depth="8" color="#e9e3d6"></a-box>
+        <a-box position="0 0.6 4.05" width="4" height="1.2" depth="0.2" color="#6b6b6b"></a-box>
+        <a-box position="0 1.8 4.05" width="6" height="1.2" depth="0.2" color="#d0f0ff" opacity="0.7"></a-box>
+        <a-box position="-3 2.1 4.05" width="1.2" height="0.9" depth="0.2" color="#d0f0ff" opacity="0.7"></a-box>
+        <a-box position="3 2.1 4.05" width="1.2" height="0.9" depth="0.2" color="#d0f0ff" opacity="0.7"></a-box>
+
+        <!-- Säulen -->
+        <a-cylinder position="-3.5 0.9 4.2" radius="0.18" height="1.8" color="#f3eee3"></a-cylinder>
+        <a-cylinder position="-1.2 0.9 4.2" radius="0.18" height="1.8" color="#f3eee3"></a-cylinder>
+        <a-cylinder position="1.2 0.9 4.2" radius="0.18" height="1.8" color="#f3eee3"></a-cylinder>
+        <a-cylinder position="3.5 0.9 4.2" radius="0.18" height="1.8" color="#f3eee3"></a-cylinder>
+      </a-entity>
+
+      <!-- Bäume -->
+      <a-entity position="-15 0 -8"><a-cylinder position="0 0.8 0" radius="0.15" height="1.6" color="#7a5c3a"></a-cylinder><a-sphere position="0 2.0 0" radius="0.9" color="#2f8f4e"></a-sphere></a-entity>
+      <a-entity position="-21 0 -10"><a-cylinder position="0 0.7 0" radius="0.14" height="1.4" color="#7a5c3a"></a-cylinder><a-sphere position="0 1.8 0" radius="0.85" color="#2f8f4e"></a-sphere></a-entity>
+      <a-entity position="-13 0 9"><a-cylinder position="0 0.75 0" radius="0.14" height="1.5" color="#7a5c3a"></a-cylinder><a-sphere position="0 1.9 0" radius="0.9" color="#2f8f4e"></a-sphere></a-entity>
+
+      <!-- Bank -->
+      <a-entity position="-16 0 6" rotation="0 90 0">
+        <a-box position="0 0.35 0" width="1.6" height="0.1" depth="0.4" color="#8b5a2b"></a-box>
+        <a-box position="0 0.55 -0.15" width="1.6" height="0.35" depth="0.08" color="#8b5a2b"></a-box>
+        <a-box position="-0.7 0.15 0" width="0.08" height="0.3" depth="0.35" color="#444"></a-box>
+        <a-box position="0.7 0.15 0" width="0.08" height="0.3" depth="0.35" color="#444"></a-box>
+      </a-entity>
+    </a-entity>
+
+    <!-- Bühne / Frontbereich -->
+    <a-box id="stage" position="0 0.15 -5.3" width="12" height="0.3" depth="3" color="#c9c9c9"></a-box>
+
+    <!-- Leinwand / Präsentation -->
+    <a-entity id="lecture-screen" position="0 2.8 -6.85">
+      <a-plane id="lecture-screen-frame" width="6.5" height="3.6" color="#111"></a-plane>
+      <a-plane id="lecture-screen-content" position="0 0 0.01" width="6.2" height="3.3" color="#1e90ff">
+        <a-animation attribute="material.color" from="#1e90ff" to="#00ff99" direction="alternate" dur="2200" repeat="indefinite"></a-animation>
+      </a-plane>
+      <a-text id="lecture-title" value="Die Zahl 42" align="center" color="#ffffff" width="6" position="0 1.1 0.02"></a-text>
+      <a-text id="lecture-subtitle" value="Warum ist sie die Antwort auf alles?" align="center" color="#ffffff" width="6" position="0 0.55 0.02"></a-text>
+    </a-entity>
+
+    <!-- Podium -->
+    <a-entity id="podium" position="0 0 -4.5">
+      <a-box position="0 0.55 0" width="1.2" height="1.1" depth="0.6" color="#8b4513"></a-box>
+      <a-box position="0 1.2 0.05" width="1.2" height="0.1" depth="0.7" color="#6f3a12"></a-box>
+    </a-entity>
+
+    <!-- Professor -->
+    <a-entity id="prof" position="0 0.45 -4.1" rotation="0 180 0">
+      <a-box width="0.45" height="0.7" depth="0.25" color="#2b2b2b"></a-box>
+      <a-sphere position="0 0.55 0" radius="0.18" color="#f1c27d"></a-sphere>
+      <a-box position="0 0.2 0.16" width="0.35" height="0.2" depth="0.05" color="#ffffff"></a-box>
+    </a-entity>
+
+    <!-- Sitz-Terrassen -->
+    <a-box position="0 0.1 -1.0" width="14" height="0.2" depth="2" color="#d6d6d6"></a-box>
+    <a-box position="0 0.2 0.7" width="14" height="0.4" depth="2" color="#d0d0d0"></a-box>
+    <a-box position="0 0.3 2.4" width="14" height="0.6" depth="2" color="#cacaca"></a-box>
+    <a-box position="0 0.4 4.1" width="14" height="0.8" depth="2" color="#c4c4c4"></a-box>
+
+    <!-- Stühle -->
+    <a-entity id="chairs">
+      <!-- Reihe 1 -->
+      <a-entity rotation="0 180 0" position="-6 0.2 -1.0"><a-box width="0.6" height="0.12" depth="0.6" color="#2f2f2f"></a-box><a-box position="0 0.25 -0.25" width="0.6" height="0.5" depth="0.08" color="#1f1f1f"></a-box></a-entity>
+      <a-entity rotation="0 180 0" position="-4 0.2 -1.0"><a-box width="0.6" height="0.12" depth="0.6" color="#2f2f2f"></a-box><a-box position="0 0.25 -0.25" width="0.6" height="0.5" depth="0.08" color="#1f1f1f"></a-box></a-entity>
+      <a-entity rotation="0 180 0" position="-2 0.2 -1.0"><a-box width="0.6" height="0.12" depth="0.6" color="#2f2f2f"></a-box><a-box position="0 0.25 -0.25" width="0.6" height="0.5" depth="0.08" color="#1f1f1f"></a-box></a-entity>
+      <a-entity rotation="0 180 0" position="0 0.2 -1.0"><a-box width="0.6" height="0.12" depth="0.6" color="#2f2f2f"></a-box><a-box position="0 0.25 -0.25" width="0.6" height="0.5" depth="0.08" color="#1f1f1f"></a-box></a-entity>
+      <a-entity rotation="0 180 0" position="2 0.2 -1.0"><a-box width="0.6" height="0.12" depth="0.6" color="#2f2f2f"></a-box><a-box position="0 0.25 -0.25" width="0.6" height="0.5" depth="0.08" color="#1f1f1f"></a-box></a-entity>
+      <a-entity rotation="0 180 0" position="4 0.2 -1.0"><a-box width="0.6" height="0.12" depth="0.6" color="#2f2f2f"></a-box><a-box position="0 0.25 -0.25" width="0.6" height="0.5" depth="0.08" color="#1f1f1f"></a-box></a-entity>
+      <a-entity rotation="0 180 0" position="6 0.2 -1.0"><a-box width="0.6" height="0.12" depth="0.6" color="#2f2f2f"></a-box><a-box position="0 0.25 -0.25" width="0.6" height="0.5" depth="0.08" color="#1f1f1f"></a-box></a-entity>
+
+      <!-- Reihe 2 -->
+      <a-entity rotation="0 180 0" position="-6 0.4 0.7"><a-box width="0.6" height="0.12" depth="0.6" color="#2f2f2f"></a-box><a-box position="0 0.25 -0.25" width="0.6" height="0.5" depth="0.08" color="#1f1f1f"></a-box></a-entity>
+      <a-entity rotation="0 180 0" position="-4 0.4 0.7"><a-box width="0.6" height="0.12" depth="0.6" color="#2f2f2f"></a-box><a-box position="0 0.25 -0.25" width="0.6" height="0.5" depth="0.08" color="#1f1f1f"></a-box></a-entity>
+      <a-entity rotation="0 180 0" position="-2 0.4 0.7"><a-box width="0.6" height="0.12" depth="0.6" color="#2f2f2f"></a-box><a-box position="0 0.25 -0.25" width="0.6" height="0.5" depth="0.08" color="#1f1f1f"></a-box></a-entity>
+      <a-entity rotation="0 180 0" position="0 0.4 0.7"><a-box width="0.6" height="0.12" depth="0.6" color="#2f2f2f"></a-box><a-box position="0 0.25 -0.25" width="0.6" height="0.5" depth="0.08" color="#1f1f1f"></a-box></a-entity>
+      <a-entity rotation="0 180 0" position="2 0.4 0.7"><a-box width="0.6" height="0.12" depth="0.6" color="#2f2f2f"></a-box><a-box position="0 0.25 -0.25" width="0.6" height="0.5" depth="0.08" color="#1f1f1f"></a-box></a-entity>
+      <a-entity rotation="0 180 0" position="4 0.4 0.7"><a-box width="0.6" height="0.12" depth="0.6" color="#2f2f2f"></a-box><a-box position="0 0.25 -0.25" width="0.6" height="0.5" depth="0.08" color="#1f1f1f"></a-box></a-entity>
+      <a-entity rotation="0 180 0" position="6 0.4 0.7"><a-box width="0.6" height="0.12" depth="0.6" color="#2f2f2f"></a-box><a-box position="0 0.25 -0.25" width="0.6" height="0.5" depth="0.08" color="#1f1f1f"></a-box></a-entity>
+
+      <!-- Reihe 3 -->
+      <a-entity rotation="0 180 0" position="-6 0.6 2.4"><a-box width="0.6" height="0.12" depth="0.6" color="#2f2f2f"></a-box><a-box position="0 0.25 -0.25" width="0.6" height="0.5" depth="0.08" color="#1f1f1f"></a-box></a-entity>
+      <a-entity rotation="0 180 0" position="-4 0.6 2.4"><a-box width="0.6" height="0.12" depth="0.6" color="#2f2f2f"></a-box><a-box position="0 0.25 -0.25" width="0.6" height="0.5" depth="0.08" color="#1f1f1f"></a-box></a-entity>
+      <a-entity rotation="0 180 0" position="-2 0.6 2.4"><a-box width="0.6" height="0.12" depth="0.6" color="#2f2f2f"></a-box><a-box position="0 0.25 -0.25" width="0.6" height="0.5" depth="0.08" color="#1f1f1f"></a-box></a-entity>
+      <a-entity rotation="0 180 0" position="0 0.6 2.4"><a-box width="0.6" height="0.12" depth="0.6" color="#2f2f2f"></a-box><a-box position="0 0.25 -0.25" width="0.6" height="0.5" depth="0.08" color="#1f1f1f"></a-box></a-entity>
+      <a-entity rotation="0 180 0" position="2 0.6 2.4"><a-box width="0.6" height="0.12" depth="0.6" color="#2f2f2f"></a-box><a-box position="0 0.25 -0.25" width="0.6" height="0.5" depth="0.08" color="#1f1f1f"></a-box></a-entity>
+      <a-entity rotation="0 180 0" position="4 0.6 2.4"><a-box width="0.6" height="0.12" depth="0.6" color="#2f2f2f"></a-box><a-box position="0 0.25 -0.25" width="0.6" height="0.5" depth="0.08" color="#1f1f1f"></a-box></a-entity>
+      <a-entity rotation="0 180 0" position="6 0.6 2.4"><a-box width="0.6" height="0.12" depth="0.6" color="#2f2f2f"></a-box><a-box position="0 0.25 -0.25" width="0.6" height="0.5" depth="0.08" color="#1f1f1f"></a-box></a-entity>
+
+      <!-- Reihe 4 -->
+      <a-entity rotation="0 180 0" position="-6 0.8 4.1"><a-box width="0.6" height="0.12" depth="0.6" color="#2f2f2f"></a-box><a-box position="0 0.25 -0.25" width="0.6" height="0.5" depth="0.08" color="#1f1f1f"></a-box></a-entity>
+      <a-entity rotation="0 180 0" position="-4 0.8 4.1"><a-box width="0.6" height="0.12" depth="0.6" color="#2f2f2f"></a-box><a-box position="0 0.25 -0.25" width="0.6" height="0.5" depth="0.08" color="#1f1f1f"></a-box></a-entity>
+      <a-entity rotation="0 180 0" position="-2 0.8 4.1"><a-box width="0.6" height="0.12" depth="0.6" color="#2f2f2f"></a-box><a-box position="0 0.25 -0.25" width="0.6" height="0.5" depth="0.08" color="#1f1f1f"></a-box></a-entity>
+      <a-entity rotation="0 180 0" position="0 0.8 4.1"><a-box width="0.6" height="0.12" depth="0.6" color="#2f2f2f"></a-box><a-box position="0 0.25 -0.25" width="0.6" height="0.5" depth="0.08" color="#1f1f1f"></a-box></a-entity>
+      <a-entity rotation="0 180 0" position="2 0.8 4.1"><a-box width="0.6" height="0.12" depth="0.6" color="#2f2f2f"></a-box><a-box position="0 0.25 -0.25" width="0.6" height="0.5" depth="0.08" color="#1f1f1f"></a-box></a-entity>
+      <a-entity rotation="0 180 0" position="4 0.8 4.1"><a-box width="0.6" height="0.12" depth="0.6" color="#2f2f2f"></a-box><a-box position="0 0.25 -0.25" width="0.6" height="0.5" depth="0.08" color="#1f1f1f"></a-box></a-entity>
+      <a-entity rotation="0 180 0" position="6 0.8 4.1"><a-box width="0.6" height="0.12" depth="0.6" color="#2f2f2f"></a-box><a-box position="0 0.25 -0.25" width="0.6" height="0.5" depth="0.08" color="#1f1f1f"></a-box></a-entity>
+    </a-entity>
+
+    <!-- Studierende -->
+    <a-entity id="students">
+      <a-entity position="-4 0.55 -1.0"><a-box width="0.35" height="0.5" depth="0.25" color="#4b7bec"></a-box><a-sphere position="0 0.35 0" radius="0.16" color="#f1c27d"></a-sphere></a-entity>
+      <a-entity position="-2 0.55 -1.0"><a-box width="0.35" height="0.5" depth="0.25" color="#20bf6b"></a-box><a-sphere position="0 0.35 0" radius="0.16" color="#f1c27d"></a-sphere></a-entity>
+      <a-entity position="2 0.55 -1.0"><a-box width="0.35" height="0.5" depth="0.25" color="#eb3b5a"></a-box><a-sphere position="0 0.35 0" radius="0.16" color="#f1c27d"></a-sphere></a-entity>
+      <a-entity position="4 0.55 -1.0"><a-box width="0.35" height="0.5" depth="0.25" color="#fd9644"></a-box><a-sphere position="0 0.35 0" radius="0.16" color="#f1c27d"></a-sphere></a-entity>
+
+      <a-entity position="-6 0.75 0.7"><a-box width="0.35" height="0.5" depth="0.25" color="#a55eea"></a-box><a-sphere position="0 0.35 0" radius="0.16" color="#f1c27d"></a-sphere></a-entity>
+      <a-entity id="student-pov" position="0 0.6 0.7"><a-box width="0.35" height="0.5" depth="0.25" color="#26de81"></a-box><a-sphere position="0 0.35 0" radius="0.16" color="#f1c27d"></a-sphere></a-entity>
+      <a-entity position="6 0.75 0.7"><a-box width="0.35" height="0.5" depth="0.25" color="#2d98da"></a-box><a-sphere position="0 0.35 0" radius="0.16" color="#f1c27d"></a-sphere></a-entity>
+
+      <a-entity position="-4 0.95 2.4"><a-box width="0.35" height="0.5" depth="0.25" color="#45aaf2"></a-box><a-sphere position="0 0.35 0" radius="0.16" color="#f1c27d"></a-sphere></a-entity>
+      <a-entity position="-2 0.95 2.4"><a-box width="0.35" height="0.5" depth="0.25" color="#0fb9b1"></a-box><a-sphere position="0 0.35 0" radius="0.16" color="#f1c27d"></a-sphere></a-entity>
+      <a-entity position="2 0.95 2.4"><a-box width="0.35" height="0.5" depth="0.25" color="#f7b731"></a-box><a-sphere position="0 0.35 0" radius="0.16" color="#f1c27d"></a-sphere></a-entity>
+      <a-entity position="4 0.95 2.4"><a-box width="0.35" height="0.5" depth="0.25" color="#3867d6"></a-box><a-sphere position="0 0.35 0" radius="0.16" color="#f1c27d"></a-sphere></a-entity>
+
+      <a-entity position="-6 1.15 4.1"><a-box width="0.35" height="0.5" depth="0.25" color="#778ca3"></a-box><a-sphere position="0 0.35 0" radius="0.16" color="#f1c27d"></a-sphere></a-entity>
+      <a-entity position="0 1.15 4.1"><a-box width="0.35" height="0.5" depth="0.25" color="#4b6584"></a-box><a-sphere position="0 0.35 0" radius="0.16" color="#f1c27d"></a-sphere></a-entity>
+      <a-entity position="6 1.15 4.1"><a-box width="0.35" height="0.5" depth="0.25" color="#e17055"></a-box><a-sphere position="0 0.35 0" radius="0.16" color="#f1c27d"></a-sphere></a-entity>
+    </a-entity>
+
+    <!-- POV: Sitzplatz (Student) -->
+    <a-entity id="rig" position="0 0.45 0.95" rotation="0 0 0">
+      <!-- Kamera: Umschauen per Maus (PointerLock). WASD aus, damit es wie „Sitzen“ wirkt. -->
+      <a-camera id="camera" look-controls="pointerLockEnabled: true" wasd-controls="enabled: false"></a-camera>
+    </a-entity>
+
+  </a-scene>
+  </main>
+
+  <footer class="app-footer">DeSync – Maximilian Wittwer – Matrikelnummer: 287664</footer>
+
+</body>
+</html>

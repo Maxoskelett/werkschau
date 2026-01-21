@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="de">
+        <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Desk VR Environment</title>
+    <!-- Scene-Page: A-Frame Umgebung + DOM-Overlay UI + ADHS-Simulation -->
+    <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script> <!-- 3D Scene Engine (WebXR) -->
+    <script src="https://unpkg.com/aframe-troika-text/dist/aframe-troika-text.min.js"></script> <!-- scharfer Text in VR -->
+    <script src="https://aframe.io/releases/1.7.1/aframe-inspector.min.js"></script> <!-- Debug (optional) -->
+    <script src="vr.js" defer></script> <!-- Start-VR Button + PointerLock (Mouselook) -->
+    <!-- Unified App Entry: Bootstrap + Input + Overlay UI -->
+    <script type="module" src="app.js"></script>
+    <link rel="stylesheet" href="base.css">
+    <link rel="stylesheet" href="overlay.css">
+</head>
+<body class="scene-page">
+    <!-- Semantik: header (DOM-Overlay), main (A-Frame Scene), footer (Credits) -->
+    <header>
+    <div id="ui-overlay">
+        <!-- ==============================================
+             UI Overlay (DOM-Overlay in WebXR)
+             ============================================== -->
+
+        <!-- Navigation / VR -->
+        <button id="back-home" data-href="landingpage.html">Zurück</button>
+        <button id="start-vr">Start VR</button>
+
+        <!-- ADHS Simulation Steuerung (wie Hörsaal) -->
+        <div id="adhs-controls">
+            <h3>ADHS Simulation</h3>
+            <div class="intensity-display">
+                <strong>Intensität:</strong> <span id="adhs-level">Aus</span>
+            </div>
+            <hr>
+            <div class="keyboard-controls">
+                <strong>Steuerung:</strong><br>
+                <button id="adhs-btn-plus">+</button> <kbd>Q</kbd> (Level ↑)<br>
+                <button id="adhs-btn-minus">-</button> <kbd>W</kbd> (Level ↓)<br>
+                <button id="adhs-btn-toggle">O</button> <kbd>O</kbd> (Start/Stop)<br>
+                <button id="adhs-btn-givein">G</button> <kbd>G</kbd> (Nachgeben)<br>
+                <button id="adhs-btn-refocus">R</button> <kbd>R</kbd> (Refocus)
+            </div>
+        </div>
+    </div>
+    </header>
+
+    <main>
+    <!-- WebXR: DOM-Overlay wird hier nicht angefordert, um Warnungen bei nicht unterstützten Features zu vermeiden. -->
+    <a-scene id="scene-desk"
+        background="color: #111827"
+        renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true; exposure: 0.85"
+        shadow="type: pcfsoft">
+        <!-- ==============================================
+             A-Frame Assets (Texturen/Medien)
+             Tipp: Diese IDs werden im Scene-Code als "#id" referenziert.
+             ============================================== -->
+        <a-assets id="assets-desk">
+            <img id="tex-floor" src="Assets/Textures/textures/floor.png">
+            <img id="tex-wall-plaster" src="Assets/Textures/textures/painted_plaster_wall_disp_4k.png">
+
+            <!-- Monitor-Folien -->
+            <img id="tex-monitor-slide-bilanz" src="Assets/Textures/textures/monitor_folie1.png">
+            <img id="tex-monitor-slide-rewe" src="Assets/Textures/textures/monitor_folie2.png">
+        </a-assets>
+
+                <a-sky color="#111827"></a-sky>
+
+           <!-- ==============================================
+               Licht-Setup 
+               ============================================== -->
+        <a-entity id="ambient-light" light="type: ambient; intensity: 0.10; color: #e2e8f0"></a-entity>
+        <a-entity id="hemisphere-light" light="type: hemisphere; intensity: 0.18; color: #cbd5e1; groundColor: #0b1020"></a-entity>
+
+        <!-- Warmes Deckenlicht (Hauptlicht) -->
+        <a-entity id="ceiling-light" position="0 4.7 -1.2">
+            <a-cylinder radius="0.22" height="0.06" material="color:#f8fafc; roughness:0.9" shadow="cast:false; receive:false"></a-cylinder>
+            <a-entity light="type: spot; color: #ffd7a1; intensity: 1.45; distance: 14; decay: 2; angle: 75; penumbra: 0.75; castShadow: true" position="0 -0.05 0" rotation="-90 0 0"></a-entity>
+            <!-- weiches "Fülllicht" wie durch Lampenschirm/Reflektion -->
+            <a-entity light="type: point; color: #ffd7a1; intensity: 0.35; distance: 8; decay: 2" position="0 -0.15 0"></a-entity>
+        </a-entity>
+
+        <!-- Kühles Mondlicht durch das Fenster (fill/rim) -->
+        <a-entity id="moonlight" light="type: directional; color: #9bbcff; intensity: 0.18; castShadow: false" position="2 6 8" rotation="-30 -130 0"></a-entity>
+
+        <!-- ==============================================
+             Raum (Boden/Decke/Wände)
+             ============================================== -->
+
+        <!-- Boden mit Textur -->
+        <a-plane id="room-floor" position="0 0 0" rotation="-90 0 0" width="10" height="10" src="#tex-floor" repeat="5 5" shadow="receive:true"></a-plane>
+        <!-- Decke -->
+        <a-plane id="room-ceiling" position="0 5 0" rotation="90 0 0" width="10" height="10" color="#ffffff" shadow="receive:true"></a-plane>
+
+        <!-- Wände mit Textur -->
+        <a-plane id="room-wall-back" position="0 2.5 -5" width="10" height="5" src="#tex-wall-plaster" repeat="3 2" shadow="receive:true"></a-plane>
+        <a-plane id="room-wall-left" position="-5 2.5 0" rotation="0 90 0" width="10" height="5" src="#tex-wall-plaster" repeat="3 2" shadow="receive:true"></a-plane>
+        <a-plane id="room-wall-right" position="5 2.5 0" rotation="0 -90 0" width="10" height="5" src="#tex-wall-plaster" repeat="3 2" shadow="receive:true"></a-plane>
+        
+        <!-- Fensterwand vorne (mit echtem Fenster-Detail) -->
+        <a-entity id="window-wall-front" position="0 2.5 5" rotation="0 180 0">
+            <!-- Brüstung (unten) -->
+            <a-plane position="0 -1.6 0" width="10" height="1.8" src="#tex-wall-plaster" repeat="3 1" shadow="receive:true"></a-plane>
+
+            <!-- Wandstreifen links/rechts -->
+            <a-box position="-4.05 0 0" width="1.9" height="5" depth="0.25" material="src:#tex-wall-plaster; repeat:1 2" shadow="receive:true"></a-box>
+            <a-box position="4.05 0 0" width="1.9" height="5" depth="0.25" material="src:#tex-wall-plaster; repeat:1 2" shadow="receive:true"></a-box>
+
+            <!-- Sturz oben -->
+            <a-box position="0 1.85 0" width="10" height="1.3" depth="0.25" material="src:#tex-wall-plaster; repeat:3 1" shadow="receive:true"></a-box>
+
+            <!-- Fensterrahmen -->
+            <a-box position="0 1.05 0.02" width="6.4" height="0.18" depth="0.22" color="#f2f2f2"></a-box>
+            <a-box position="0 -0.55 0.02" width="6.4" height="0.18" depth="0.22" color="#f2f2f2"></a-box>
+            <a-box position="-3.11 0.25 0.02" width="0.18" height="2.0" depth="0.22" color="#f2f2f2"></a-box>
+            <a-box position="3.11 0.25 0.02" width="0.18" height="2.0" depth="0.22" color="#f2f2f2"></a-box>
+
+            <!-- Glas -->
+            <a-plane position="0 0.25 0.14" width="6.0" height="1.6" material="color:#bde0fe; opacity:0.14; transparent:true"></a-plane>
+
+            <!-- Sprossen -->
+            <a-box position="0 0.25 0.12" width="0.06" height="1.65" depth="0.06" color="#f2f2f2"></a-box>
+            <a-box position="-1.5 0.25 0.12" width="0.06" height="1.65" depth="0.06" color="#f2f2f2"></a-box>
+            <a-box position="1.5 0.25 0.12" width="0.06" height="1.65" depth="0.06" color="#f2f2f2"></a-box>
+            <a-box position="0 -0.3 0.12" width="6.2" height="0.06" depth="0.06" color="#f2f2f2"></a-box>
+            <a-box position="0 0.8 0.12" width="6.2" height="0.06" depth="0.06" color="#f2f2f2"></a-box>
+        </a-entity>
+
+        <!-- Außenbereich: Nachtstadt -->
+        <a-entity id="outside" position="0 0 0">
+            <!-- Dunkle Stadtsilhouette -->
+            <a-plane id="outside-ground" position="0 0 12" rotation="-90 0 0" width="20" height="14" color="#0f172a"></a-plane>
+
+            <!-- Gebäude mit leuchtenden Fenstern -->
+            <a-entity id="outside-building-right" position="6 0 15">
+                <a-box position="0 2 0" width="5" height="4" depth="6" color="#1a202c"></a-box>
+                <!-- Leuchtende Fenster -->
+                <a-box position="-1.5 2.8 3.05" width="0.6" height="0.6" depth="0.2" material="color:#fbbf24; emissive:#fbbf24; emissiveIntensity:0.6"></a-box>
+                <a-box position="0 2.8 3.05" width="0.6" height="0.6" depth="0.2" material="color:#fbbf24; emissive:#fbbf24; emissiveIntensity:0.6"></a-box>
+                <a-box position="1.5 2.8 3.05" width="0.6" height="0.6" depth="0.2" material="color:#fbbf24; emissive:#fbbf24; emissiveIntensity:0.6"></a-box>
+                <a-box position="-1.5 1.5 3.05" width="0.6" height="0.6" depth="0.2" material="color:#fbbf24; emissive:#fbbf24; emissiveIntensity:0.4"></a-box>
+                <a-box position="1.5 1.5 3.05" width="0.6" height="0.6" depth="0.2" material="color:#60a5fa; emissive:#60a5fa; emissiveIntensity:0.5"></a-box>
+            </a-entity>
+            <a-entity id="outside-building-left" position="-5 0 14">
+                <a-box position="0 1.5 0" width="3" height="3" depth="4" color="#1a202c"></a-box>
+                <a-box position="-0.8 2.0 2.05" width="0.5" height="0.5" depth="0.2" material="color:#fbbf24; emissive:#fbbf24; emissiveIntensity:0.5"></a-box>
+                <a-box position="0.8 2.0 2.05" width="0.5" height="0.5" depth="0.2" material="color:#fbbf24; emissive:#fbbf24; emissiveIntensity:0.5"></a-box>
+                <a-box position="0 1.0 2.05" width="0.5" height="0.5" depth="0.2" material="color:#60a5fa; emissive:#60a5fa; emissiveIntensity:0.4"></a-box>
+            </a-entity>
+
+            <!-- Straßenlaterne -->
+            <a-entity id="outside-streetlamp" position="0 0 8.5">
+                <a-cylinder position="0 1.5 0" radius="0.05" height="3" color="#374151"></a-cylinder>
+                <a-sphere position="0 3.2 0" radius="0.15" material="color:#fbbf24; emissive:#fbbf24; emissiveIntensity:0.7"></a-sphere>
+                <a-entity light="type: point; intensity: 0.3; distance: 8; color: #fbbf24" position="0 3.2 0"></a-entity>
+            </a-entity>
+        </a-entity>
+
+
+        <!-- Gaming Schreibtisch mit LED -->
+        <a-entity id="desk" position="0 0 -4.2" shadow="cast:true; receive:true">
+            <!-- Desk top (texturiert + Kante) -->
+            <a-box position="0 0.405 0" width="2.2" height="0.07" depth="1.2" material="src:#tex-floor; repeat:2 1; color:#111827; metalness:0.05; roughness:0.92"></a-box>
+            <a-box position="0 0.385 0.585" width="2.18" height="0.02" depth="0.02" material="color:#0b1220; metalness:0.25; roughness:0.55"></a-box>
+
+            <!-- Kabeldurchführungen (Grommets) -->
+            <a-torus position="-0.65 0.442 -0.46" rotation="90 0 0" radius="0.05" radius-tubular="0.012" material="color:#0b1220; metalness:0.35; roughness:0.55"></a-torus>
+            <a-torus position="0.65 0.442 -0.46" rotation="90 0 0" radius="0.05" radius-tubular="0.012" material="color:#0b1220; metalness:0.35; roughness:0.55"></a-torus>
+
+            <!-- Unterbau (Metallrahmen + Querstreben) -->
+            <a-box position="0 0.33 -0.52" width="1.95" height="0.06" depth="0.18" material="color:#0b1220; metalness:0.4; roughness:0.45"></a-box> <!-- Kabelwanne hinten -->
+            <a-box position="0 0.26 0" width="2.05" height="0.035" depth="0.045" material="color:#111827; metalness:0.55; roughness:0.4"></a-box>
+            <a-box position="0 0.26 -0.50" width="2.05" height="0.035" depth="0.045" material="color:#111827; metalness:0.55; roughness:0.4"></a-box>
+            <a-box position="-1.02 0.26 0" width="0.045" height="0.035" depth="1.05" material="color:#111827; metalness:0.55; roughness:0.4"></a-box>
+            <a-box position="1.02 0.26 0" width="0.045" height="0.035" depth="1.05" material="color:#111827; metalness:0.55; roughness:0.4"></a-box>
+
+            <!-- Beine (kantig, stabil) -->
+            <a-box position="-1.0 0.18 -0.52" width="0.07" height="0.36" depth="0.07" material="color:#0f172a; metalness:0.5; roughness:0.45"></a-box>
+            <a-box position="1.0 0.18 -0.52" width="0.07" height="0.36" depth="0.07" material="color:#0f172a; metalness:0.5; roughness:0.45"></a-box>
+            <a-box position="-1.0 0.18 0.52" width="0.07" height="0.36" depth="0.07" material="color:#0f172a; metalness:0.5; roughness:0.45"></a-box>
+            <a-box position="1.0 0.18 0.52" width="0.07" height="0.36" depth="0.07" material="color:#0f172a; metalness:0.5; roughness:0.45"></a-box>
+            <!-- Standfüße -->
+            <a-box position="-1.0 0.01 -0.52" width="0.14" height="0.02" depth="0.14" material="color:#111827; metalness:0.35; roughness:0.55"></a-box>
+            <a-box position="1.0 0.01 -0.52" width="0.14" height="0.02" depth="0.14" material="color:#111827; metalness:0.35; roughness:0.55"></a-box>
+            <a-box position="-1.0 0.01 0.52" width="0.14" height="0.02" depth="0.14" material="color:#111827; metalness:0.35; roughness:0.55"></a-box>
+            <a-box position="1.0 0.01 0.52" width="0.14" height="0.02" depth="0.14" material="color:#111827; metalness:0.35; roughness:0.55"></a-box>
+            <!-- RGB LED Streifen unter dem Tisch -->
+            <a-box position="-1.06 0.365 0" width="0.04" height="0.016" depth="1.12" material="color:#a855f7; emissive:#a855f7; emissiveIntensity:0.9"></a-box>
+            <a-box position="1.06 0.365 0" width="0.04" height="0.016" depth="1.12" material="color:#ec4899; emissive:#ec4899; emissiveIntensity:0.9"></a-box>
+            <a-box position="0 0.365 -0.56" width="2.02" height="0.016" depth="0.04" material="color:#3b82f6; emissive:#3b82f6; emissiveIntensity:0.9"></a-box>
+            <!-- LED-Licht nur dezent (sonst wirkt es unnatürlich hell) -->
+            <a-entity light="type: point; intensity: 0.20; distance: 2; decay: 2; color: #a855f7" position="-1.0 0.4 0"></a-entity>
+            <a-entity light="type: point; intensity: 0.20; distance: 2; decay: 2; color: #ec4899" position="1.0 0.4 0"></a-entity>
+            <a-entity light="type: point; intensity: 0.18; distance: 2; decay: 2; color: #3b82f6" position="0 0.4 -0.5"></a-entity>
+            
+            <!-- (alte runde Beine ersetzt durch kantige Beine/Rahmen oben) -->
+            <!-- 2 Monitors mit Uni-Inhalten -->
+            <a-entity id="monitor1" position="-0.35 0.67 -0.42">
+                <a-box width="0.6" height="0.35" depth="0.04" material="color:#111; metalness:0.4; roughness:0.5"></a-box>
+                <!-- Monitor Bildschirm mit Code -->
+                <!-- Monitor-Bild: Eröffnungsbilanz -->
+                <a-plane id="monitor1-screen" position="0 0 0.025" width="0.56" height="0.315"
+                    material="shader: flat; src: #tex-monitor-slide-bilanz; color: #ffffff"></a-plane>
+                <!-- Monitor stand -->
+                <a-cylinder position="0 -0.195 0" radius="0.085" height="0.03" material="color:#222; metalness:0.3; roughness:0.6"></a-cylinder>
+                <a-cylinder position="0 -0.105 0" radius="0.025" height="0.18" material="color:#222; metalness:0.3; roughness:0.6"></a-cylinder>
+                <!-- RGB Leiste unten -->
+                <a-box position="0 -0.19 0.02" width="0.6" height="0.015" depth="0.01" material="color:#a855f7; emissive:#a855f7; emissiveIntensity:0.8"></a-box>
+            </a-entity>
+            <a-entity id="monitor2" position="0.35 0.67 -0.42">
+                <a-box width="0.6" height="0.35" depth="0.04" material="color:#111; metalness:0.4; roughness:0.5"></a-box>
+                <!-- Monitor Bildschirm mit Mathe -->
+                <!-- Monitor-Bild: Bestandteile des Rechnungswesens -->
+                <a-plane id="monitor2-screen" position="0 0 0.025" width="0.56" height="0.315"
+                    material="shader: flat; src: #tex-monitor-slide-rewe; color: #ffffff"></a-plane>
+                <!-- Monitor stand -->
+                <a-cylinder position="0 -0.195 0" radius="0.085" height="0.03" material="color:#222; metalness:0.3; roughness:0.6"></a-cylinder>
+                <a-cylinder position="0 -0.105 0" radius="0.025" height="0.18" material="color:#222; metalness:0.3; roughness:0.6"></a-cylinder>
+                <!-- RGB Leiste unten -->
+                <a-box position="0 -0.19 0.02" width="0.6" height="0.015" depth="0.01" material="color:#ec4899; emissive:#ec4899; emissiveIntensity:0.8"></a-box>
+            </a-entity>
+            <!-- RGB Gaming Keyboard (Base + Tastenplatte + Handballenauflage + Kabel) -->
+            <a-box id="desk-keyboard" position="0 0.458 0.35" width="0.46" height="0.028" depth="0.19" material="color:#111827; metalness:0.35; roughness:0.55"></a-box>
+            <a-box id="desk-keyboard-plate" position="0 0.475 0.35" width="0.44" height="0.008" depth="0.17" material="color:#0b1220; metalness:0.2; roughness:0.8"></a-box>
+            <a-box id="desk-wristrest" position="0 0.458 0.455" width="0.46" height="0.018" depth="0.035" material="color:#0f172a; metalness:0.15; roughness:0.85"></a-box>
+            <a-box position="0 0.471 0.35" width="0.44" height="0.004" depth="0.17" material="color:#00ff00; emissive:#00ff00; emissiveIntensity:0.55"></a-box>
+            <a-entity light="type: point; intensity: 0.35; distance: 1.4; color: #00ff00" position="0 0.478 0.35"></a-entity>
+            <a-cylinder position="0 0.447 0.52" radius="0.004" height="0.28" rotation="90 0 0" material="color:#0b1220; metalness:0.1; roughness:0.9"></a-cylinder>
+            
+            <!-- Gaming Mouse mit RGB (körper + Wölbung + Wheel + Kabel) -->
+            <a-box id="desk-mouse" position="0.55 0.45 0.2" width="0.062" height="0.022" depth="0.105" material="color:#111827; metalness:0.35; roughness:0.6"></a-box>
+            <a-sphere position="0.55 0.462 0.205" radius="0.038" scale="1 0.55 1.1" material="color:#0b1220; metalness:0.25; roughness:0.75"></a-sphere>
+            <a-cylinder position="0.55 0.472 0.165" radius="0.006" height="0.018" rotation="90 0 0" material="color:#1f2937; metalness:0.2; roughness:0.8"></a-cylinder>
+            <a-plane position="0.55 0.468 0.205" width="0.04" height="0.06" rotation="-90 0 0" material="color:#ff00ff; emissive:#ff00ff; emissiveIntensity:0.65"></a-plane>
+            <a-cylinder position="0.55 0.446 0.06" radius="0.0035" height="0.30" rotation="90 0 0" material="color:#0b1220; metalness:0.1; roughness:0.9"></a-cylinder>
+            
+            <!-- XXL Gaming Mousepad -->
+            <a-box id="desk-mousepad" position="0.35 0.442 0.25" width="0.87" height="0.008" depth="0.52" material="color:#0b1220; metalness:0.05; roughness:0.98"></a-box>
+            <a-box position="0.35 0.446 0.25" width="0.865" height="0.002" depth="0.515" material="color:#3b82f6; emissive:#3b82f6; emissiveIntensity:0.25"></a-box>
+
+            <!-- Kleine Desktop-Speaker (links/rechts) -->
+            <a-entity id="desk-speaker-left" position="-0.95 0.455 -0.20" rotation="0 15 0">
+                <a-box width="0.09" height="0.14" depth="0.10" material="color:#111827; metalness:0.25; roughness:0.65"></a-box>
+                <a-circle radius="0.032" position="0 0.02 0.051" material="color:#0b1220; shader: flat"></a-circle>
+                <a-circle radius="0.022" position="0 -0.035 0.051" material="color:#0b1220; shader: flat"></a-circle>
+            </a-entity>
+            <a-entity id="desk-speaker-right" position="0.95 0.455 -0.20" rotation="0 -15 0">
+                <a-box width="0.09" height="0.14" depth="0.10" material="color:#111827; metalness:0.25; roughness:0.65"></a-box>
+                <a-circle radius="0.032" position="0 0.02 0.051" material="color:#0b1220; shader: flat"></a-circle>
+                <a-circle radius="0.022" position="0 -0.035 0.051" material="color:#0b1220; shader: flat"></a-circle>
+            </a-entity>
+            
+            <!-- Gaming Headset auf Ständer -->
+            <a-entity id="desk-headset-stand" position="-0.7 0.44 -0.35">
+                <a-cylinder radius="0.02" height="0.35" color="#333"></a-cylinder>
+                <a-cylinder position="0 0.2 0" radius="0.06" height="0.05" color="#222"></a-cylinder>
+                <!-- Headset -->
+                <a-torus position="0 0.25 0" radius="0.08" radius-tubular="0.015" rotation="90 0 0" color="#1a1a1a"></a-torus>
+                <a-sphere position="-0.08 0.25 0" radius="0.035" material="color:#111; metalness:0.3; roughness:0.6"></a-sphere>
+                <a-sphere position="0.08 0.25 0" radius="0.035" material="color:#111; metalness:0.3; roughness:0.6"></a-sphere>
+                <a-plane position="-0.08 0.25 0" width="0.03" height="0.03" rotation="0 90 0" material="color:#00ff00; emissive:#00ff00; emissiveIntensity:0.5"></a-plane>
+            </a-entity>
+            
+            <!-- Energy Drink -->
+            <a-entity position="0.75 0.53 -0.25">
+                <a-cylinder radius="0.03" height="0.16" material="color:#1e3a8a; metalness:0.5; roughness:0.3"></a-cylinder>
+                <a-cylinder position="0 0.09 0" radius="0.032" height="0.02" color="#60a5fa"></a-cylinder>
+            </a-entity>
+            
+            <!-- Controller neben Monitor -->
+            <a-entity position="-0.65 0.45 0.15" rotation="0 -25 0">
+                <a-box width="0.12" height="0.03" depth="0.08" material="color:#1a1a1a; metalness:0.2; roughness:0.7"></a-box>
+                <a-sphere position="-0.04 0.02 0.02" radius="0.015" color="#3b82f6"></a-sphere>
+                <a-sphere position="0.04 0.02 0.02" radius="0.015" color="#ef4444"></a-sphere>
+            </a-entity>
+            
+
+            
+            <!-- Stift -->
+            <a-cylinder position="-0.78 0.45 0.18" radius="0.008" height="0.14" rotation="0 0 110" color="#1e3a8a"></a-cylinder>
+
+            <!-- Handy liegt fest auf dem Schreibtisch (für Notifications) -->
+            <a-entity id="desk-phone" position="0.78 0.445 0.32" rotation="-90 25 0">
+                <!-- Gehäuse -->
+                <a-box width="0.078" height="0.158" depth="0.010" material="color:#111827; metalness:0.6; roughness:0.35"></a-box>
+                <!-- Screen -->
+                <a-plane id="desk-phone__screen" width="0.072" height="0.148" position="0 0 0.006" material="shader: flat; color:#0b1220"></a-plane>
+                <!-- Notch -->
+                <a-box width="0.028" height="0.006" depth="0.004" position="0 0.073 0.007" color="#0b1220"></a-box>
+                <!-- Notification Card (initial hidden) -->
+                <a-plane id="desk-phone__card" width="0.070" height="0.040" position="0 0.040 0.007"
+                         material="shader: flat; color:#111827; opacity:0.0; transparent:true"></a-plane>
+                <a-troika-text id="desk-phone__app" value="" position="-0.033 0.055 0.008" max-width="0.070" font-size="0.0065" color="#94a3b8" align="left" anchor="left"></a-troika-text>
+                <a-troika-text id="desk-phone__time" value="" position="0.033 0.055 0.008" max-width="0.070" font-size="0.0065" color="#64748b" align="right" anchor="right"></a-troika-text>
+                <a-troika-text id="desk-phone__sender" value="" position="-0.033 0.043 0.008" max-width="0.070" font-size="0.0074" color="#ffffff" align="left" anchor="left"></a-troika-text>
+                <a-troika-text id="desk-phone__text" value="" position="-0.033 0.032 0.008" max-width="0.070" font-size="0.0068" color="#cbd5e1" align="left" anchor="left" baseline="top" line-height="1.12"></a-troika-text>
+            </a-entity>
+        </a-entity>
+
+        <!-- Stuhl, passend zum Tisch, POV sitzt darauf -->
+        <a-entity id="chair" position="0.118 0 -3.15" rotation="0 180 0" shadow="cast:true; receive:false">
+            <!-- Sitzfläche -->
+            <a-cylinder position="0 0.22 0" radius="0.3" height="0.08" material="color:#444; metalness:0.1; roughness:0.9"></a-cylinder>
+            <!-- Rückenlehne -->
+            <a-box position="0 0.45 -0.22" width="0.6" height="0.5" depth="0.05" material="color:#222; metalness:0.1; roughness:0.9"></a-box>
+            <!-- Beine -->
+            <a-cylinder position="-0.25 0.04 0.15" radius="0.02" height="0.08" material="color:#222; metalness:0.2; roughness:0.7"></a-cylinder>
+            <a-cylinder position="0.25 0.04 0.15" radius="0.02" height="0.08" material="color:#222; metalness:0.2; roughness:0.7"></a-cylinder>
+            <a-cylinder position="-0.25 0.04 -0.15" radius="0.02" height="0.08" material="color:#222; metalness:0.2; roughness:0.7"></a-cylinder>
+            <a-cylinder position="0.25 0.04 -0.15" radius="0.02" height="0.08" material="color:#222; metalness:0.2; roughness:0.7"></a-cylinder>
+            <!-- Gasfeder -->
+            <a-cylinder position="0 0.1 0" radius="0.04" height="0.2" material="color:#666; metalness:0.4; roughness:0.5"></a-cylinder>
+        </a-entity>
+
+        <!-- Dekoration: Pflanze, Bücher, Lampe -->
+        <!-- Pflanze vorne links -->
+        <a-entity id="plant" position="-3.5 0.1 3.5">
+            <a-cylinder radius="0.1" height="0.2" color="#8b5a2b"></a-cylinder>
+            <a-sphere position="0 0.2 0" radius="0.2" color="#228B22"></a-sphere>
+            <a-sphere position="-0.08 0.25 0.08" radius="0.12" color="#2f8f4e"></a-sphere>
+            <a-sphere position="0.08 0.22 -0.08" radius="0.1" color="#2f8f4e"></a-sphere>
+        </a-entity>
+        <!-- Bücherregal hinten rechts -->
+        <a-entity id="bookshelf" position="4.2 1.1 -4">
+            <a-box width="0.3" height="2.2" depth="0.7" material="color:#deb887; metalness:0.05; roughness:0.95"></a-box>
+            <!-- Regalböden -->
+            <a-box position="0 -0.9 0" width="0.28" height="0.03" depth="0.68" color="#c9a961"></a-box>
+            <a-box position="0 -0.4 0" width="0.28" height="0.03" depth="0.68" color="#c9a961"></a-box>
+            <a-box position="0 0.1 0" width="0.28" height="0.03" depth="0.68" color="#c9a961"></a-box>
+            <a-box position="0 0.6 0" width="0.28" height="0.03" depth="0.68" color="#c9a961"></a-box>
+            <!-- Bücher -->
+            <a-box position="0 0.92 0.3" width="0.24" height="0.18" depth="0.18" color="#b22222"></a-box>
+            <a-box position="0 0.72 0.3" width="0.24" height="0.16" depth="0.18" color="#1e3a8a"></a-box>
+            <a-box position="0 0.54 0.3" width="0.24" height="0.14" depth="0.18" color="#15803d"></a-box>
+            <a-box position="0 0.42 0.3" width="0.24" height="0.16" depth="0.18" color="#4b5563"></a-box>
+            <a-box position="0 0.22 0.3" width="0.24" height="0.18" depth="0.18" color="#7c2d12"></a-box>
+            <a-box position="0 0.02 0.3" width="0.24" height="0.16" depth="0.18" color="#831843"></a-box>
+            <a-box position="0 -0.28 0.3" width="0.24" height="0.14" depth="0.18" color="#14532d"></a-box>
+            <a-box position="0 -0.78 0.3" width="0.24" height="0.18" depth="0.18" color="#4c1d95"></a-box>
+            <!-- Deko auf dem Regal -->
+            <a-sphere position="0 1.15 0.28" radius="0.08" color="#64748b"></a-sphere>
+        </a-entity>
+        <!-- RGB Stehlampe -->
+        <a-entity id="lamp" position="-4.2 0.0 -4">
+            <a-cylinder radius="0.06" height="1.8" material="color:#1a1a1a; metalness:0.5; roughness:0.4"></a-cylinder>
+            <!-- RGB Ring oben -->
+            <a-torus position="0 1.7 0" radius="0.2" radius-tubular="0.02" rotation="0 0 0" material="color:#a855f7; emissive:#a855f7; emissiveIntensity:0.8"></a-torus>
+            <a-animation attribute="material.color" from="#a855f7" to="#3b82f6" direction="alternate" dur="3000" repeat="indefinite"></a-animation>
+            <a-entity light="type: point; intensity: 0.35; distance: 6; decay: 2; color: #a855f7" position="0 1.7 0"></a-entity>
+            <a-cylinder position="0 0.05 0" radius="0.18" height="0.1" material="color:#1a1a1a; metalness:0.3; roughness:0.6"></a-cylinder>
+        </a-entity>
+        <!-- Gaming Poster -->
+        <a-entity id="wall-art">
+            <!-- Cyberpunk Style Poster links -->
+            <a-plane position="-4.95 2.5 -1" rotation="0 90 0" width="1.2" height="1.6" color="#000"></a-plane>
+            <a-plane position="-4.93 2.5 -1" rotation="0 90 0" width="1.1" height="1.5" material="color:#a855f7; emissive:#a855f7; emissiveIntensity:0.4"></a-plane>
+            <a-text value="CYBER\nPUNK" position="-4.92 2.5 -1" rotation="0 90 0" width="2.5" align="center" color="#000" font="monoid"></a-text>
+            
+            <!-- Retro Gaming Poster hinten -->
+            <a-plane position="1.5 3.2 -4.95" rotation="0 0 0" width="1.8" height="1.2" color="#1a1a1a"></a-plane>
+            <a-plane position="1.5 3.2 -4.93" rotation="0 0 0" width="1.7" height="1.1" material="color:#00ff00; emissive:#00ff00; emissiveIntensity:0.3"></a-plane>
+            <a-text value="GAME OVER\nPress Start" position="1.5 3.2 -4.92" rotation="0 0 0" width="3.5" align="center" color="#000" font="monoid"></a-text>
+            
+            <!-- Motivations-Poster rechts -->
+            <a-plane position="4.95 2.8 1" rotation="0 -90 0" width="1.5" height="1.0" color="#1a1a1a"></a-plane>
+            <a-plane position="4.93 2.8 1" rotation="0 -90 0" width="1.4" height="0.9" material="color:#3b82f6; emissive:#3b82f6; emissiveIntensity:0.3"></a-plane>
+            <a-text value="CODE.\nCREATE.\nCONQUER." position="4.92 2.8 1" rotation="0 -90 0" width="2.8" align="center" color="#fff" font="monoid"></a-text>
+        </a-entity>
+        
+        <!-- LED Stripes an der Wand hinter Monitoren -->
+        <a-box position="0 1.2 -4.9" width="2.5" height="0.05" depth="0.05" material="color:#ec4899; emissive:#ec4899; emissiveIntensity:1.0"></a-box>
+        <a-entity light="type: point; intensity: 0.35; distance: 3; decay: 2; color: #ec4899" position="0 1.2 -4.8"></a-entity>
+        <!-- Teppich unter dem Schreibtisch -->
+        <a-plane position="0 0.01 -3.8" rotation="-90 0 0" width="2.8" height="2.2" color="#7c2d12" opacity="0.9"></a-plane>
+        <!-- Papierkorb -->
+        <a-entity position="-0.8 0.1 -3.2">
+            <a-cylinder radius="0.15" height="0.3" color="#4b5563" material="metalness:0.2; roughness:0.8"></a-cylinder>
+        </a-entity>
+        <!-- Gaming PC Tower mit RGB -->
+        <a-entity position="0.95 0 -4.65">
+            <a-box width="0.25" height="0.65" depth="0.5" material="color:#0a0a0a; metalness:0.5; roughness:0.4"></a-box>
+            <!-- Glasfenster mit RGB Lüfter -->
+            <a-plane position="-0.13 0.1 0" rotation="0 -90 0" width="0.4" height="0.5" material="color:#1a1a1a; opacity:0.3; transparent:true; metalness:0.8; roughness:0.2"></a-plane>
+            <!-- RGB Lüfter -->
+            <a-torus position="-0.125 0.15 0" radius="0.08" radius-tubular="0.01" rotation="0 90 0" material="color:#a855f7; emissive:#a855f7; emissiveIntensity:0.9"></a-torus>
+            <a-animation attribute="rotation" from="0 90 0" to="0 450 0" dur="2000" repeat="indefinite" easing="linear"></a-animation>
+            <a-torus position="-0.125 -0.05 0.1" radius="0.06" radius-tubular="0.01" rotation="0 90 0" material="color:#00ff00; emissive:#00ff00; emissiveIntensity:0.9"></a-torus>
+            <!-- Power LED -->
+            <a-plane position="-0.11 -0.28 0.2" rotation="0 -90 0" width="0.03" height="0.01" material="color:#00ff00; emissive:#00ff00; emissiveIntensity:1.0"></a-plane>
+            <!-- GPU RGB -->
+            <a-box position="-0.12 0 -0.15" width="0.02" height="0.15" depth="0.1" material="color:#ec4899; emissive:#ec4899; emissiveIntensity:0.8"></a-box>
+            <a-entity light="type: point; intensity: 0.7; distance: 2.5; color: #a855f7" position="-0.1 0.1 0"></a-entity>
+        </a-entity>
+        <!-- Wandregal rechts -->
+        <a-entity position="4.85 2.0 1" rotation="0 -90 0">
+            <a-box width="1.5" height="0.3" depth="0.25" color="#8b7355"></a-box>
+            <a-box position="-0.4 0.1 0.1" width="0.12" height="0.16" depth="0.08" color="#4b5563"></a-box>
+            <a-box position="-0.2 0.1 0.1" width="0.14" height="0.18" depth="0.08" color="#b91c1c"></a-box>
+            <a-box position="0.05 0.1 0.1" width="0.12" height="0.16" depth="0.08" color="#065f46"></a-box>
+            <a-sphere position="0.35 0.12 0.08" radius="0.06" color="#fbbf24"></a-sphere>
+        </a-entity>
+
+
+        <!-- VR Rig: POV sitzt vor dem Schreibtisch auf Stuhlhöhe -->
+        <!-- Kamera: direkt vor den Monitoren -->
+        <a-entity id="rig" position="0.118 -0.92 -3.15" rotation="0 0 0">
+            <!-- Kamera: Umschauen per Maus (PointerLock). WASD aus (kein Laufen). -->
+            <a-camera id="camera" look-controls="pointerLockEnabled: true" wasd-controls="enabled: false"></a-camera>
+        </a-entity>
+
+    </a-scene>
+    </main>
+
+    <footer class="app-footer">DeSync – Maximilian Wittwer – Matrikelnummer: 287664</footer>
+
+</body>
+</html>

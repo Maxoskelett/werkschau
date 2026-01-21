@@ -1,0 +1,87 @@
+/*
+	base.css
+	- Gemeinsame Styles für alle Seiten.
+	- Landingpage: zentriertes, helles UI.
+	- Scene-Pages (A-Frame): Fullscreen-Layout + dunkler Hintergrund.
+*/
+
+/* Design-Tokens (Farben/Schatten) */
+:root {
+	--bg-primary: #e8ecf1;
+	--bg-secondary: #f5f7fa;
+	--text-primary: #1d1d1f;
+	--text-secondary: #86868b;
+	--accent-purple: #a855f7;
+	--accent-blue: #007aff;
+	--shadow-light: rgba(255, 255, 255, 0.8);
+	--shadow-dark: rgba(0, 0, 0, 0.15);
+}
+
+* { box-sizing: border-box; }
+
+/* Standard-Seitenlayout (Landing) */
+body {
+	margin: 0;
+	min-height: 100vh;
+	background: linear-gradient(135deg, #e8ecf1 0%, #f5f7fa 100%);
+	font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	-webkit-font-smoothing: antialiased;
+	padding: 2rem 1rem; /* Landing: zentriert, mit etwas „Luft“ */
+}
+
+/* Scene-Pages sollen den Viewport füllen (A-Frame) */
+body.scene-page {
+	padding: 0;
+	display: block;
+	background: #000; /* Scene-Pages: A-Frame Canvas im Fullscreen */
+}
+
+body.scene-page main,
+body.scene-page a-scene {
+	width: 100vw;
+	height: 100vh;
+}
+
+/* Footer für die Abgabe (Name + Matrikelnummer) */
+.app-footer {
+	position: fixed;
+	left: 10px;
+	right: 10px;
+	bottom: 10px;
+	padding: 8px 10px;
+	background: rgba(0, 0, 0, 0.55);
+	color: #fff;
+	font-size: 12px;
+	line-height: 1.25;
+	border-radius: 10px;
+	backdrop-filter: blur(6px);
+	-webkit-backdrop-filter: blur(6px);
+	text-align: center;
+	pointer-events: none;
+	z-index: 1100;
+}
+
+/* RESPONSIVE DESIGN (shared) */
+@media (max-width: 767px) {
+	body { padding: 1rem 0.5rem; }
+	body.scene-page { padding: 0; }
+}
+
+/* 1024x600 & ähnliche "short" Desktop-Displays: lieber oben anfangen statt zentrieren.
+	Sonst kann bei langen Landing-Inhalten der obere Bereich unnötig "weggeschoben" wirken.
+*/
+@media (max-height: 650px) {
+	body:not(.scene-page) {
+		justify-content: flex-start;
+		padding-top: 1rem;
+		padding-bottom: 1rem;
+	}
+}
+
+@media print {
+	body { background: white; }
+}

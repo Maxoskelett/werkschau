@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WebXR Smoke Test (A-Frame)</title>
+  <style>
+    body { margin: 0; font-family: system-ui, Segoe UI, Roboto, sans-serif; }
+    #ui { position: fixed; left: 12px; top: 12px; z-index: 99999; display: flex; gap: 8px; }
+    button { padding: 10px 12px; border-radius: 10px; border: 0; background: #111827; color: #fff; cursor: pointer; }
+    #msg { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 99999; padding: 10px 12px; border-radius: 12px; background: rgba(15,23,42,.85); color: #e2e8f0; }
+  </style>
+  <script>
+    // Workaround (Quest Link / manche WebXR Runtimes):
+    // Verhindert Three.js WebXR-Layers Pfad (XRWebGLBinding.getViewSubImage), der sonst crashen kann.
+    try { window.XRWebGLBinding = undefined; } catch (e) {}
+  </script>
+  <script src="https://aframe.io/releases/1.6.0/aframe.min.js" defer></script>
+</head>
+<body>
+  <div id="ui">
+    <button id="start">Start VR</button>
+  </div>
+  <div id="msg">Lade…</div>
+
+  <a-scene>
+    <a-sky color="#0ea5e9"></a-sky>
+    <a-box position="0 1.5 -3" rotation="0 45 0" color="#f97316"></a-box>
+    <a-plane position="0 0 -3" rotation="-90 0 0" width="8" height="8" color="#e2e8f0"></a-plane>
+    <a-entity id="rig" position="0 0 0">
+      <a-camera position="0 1.6 0" wasd-controls="enabled:false"></a-camera>
+    </a-entity>
+  </a-scene>
+
+  <script>
+    const msg = document.getElementById('msg');
+    const setMsg = (t) => { msg.textContent = t; };
+
+    async function preflight() {
+      const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      const secure = location.protocol === 'https:' || isLocalhost;
+      if (!secure) return { ok: false, reason: 'Nicht secure context: nutze https:// oder localhost.' };
+      if (!('xr' in navigator)) return { ok: false, reason: 'navigator.xr fehlt (WebXR nicht verfügbar).' };
+      try {
+        if (navigator.xr.isSessionSupported) {
+          const ok = await navigator.xr.isSessionSupported('immersive-vr');
+          if (!ok) return { ok: false, reason: 'immersive-vr wird nicht unterstützt.' };
+        }
+      } catch (e) {
+        // ignore
+      }
+      return { ok: true };
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      const pf = await preflight();
+      setMsg(pf.ok ? 'Bereit. Klicke Start VR.' : ('Nicht bereit: ' + pf.reason));
+
+      document.getElementById('start').addEventListener('click', async () => {
+        const scene = document.querySelector('a-scene');
+        const pf2 = await preflight();
+        if (!pf2.ok) { setMsg('VR blockiert: ' + pf2.reason); return; }
+
+        try {
+          const p = scene.enterVR();
+          if (p && p.catch) {
+            p.catch((err) => setMsg('enterVR() fehlgeschlagen: ' + (err && err.message ? err.message : String(err))));
+          }
+          setMsg('enterVR() aufgerufen…');
+        } catch (err) {
+          setMsg('enterVR() Exception: ' + (err && err.message ? err.message : String(err)));
+        }
+      });
+
+      const scene = document.querySelector('a-scene');
+      scene.addEventListener('enter-vr', () => setMsg('enter-vr Event ✓'));
+      scene.addEventListener('exit-vr', () => setMsg('exit-vr Event ✓'));
+    });
+  </script>
+</body>
+</html>

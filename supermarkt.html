@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Supermarkt VR</title>
+  <!-- Scene-Page: A-Frame Umgebung + DOM-Overlay UI + ADHS-Simulation -->
+  <script src="https://aframe.io/releases/1.7.1/aframe.min.js" defer></script> <!-- 3D Scene Engine (WebXR) -->
+  <script src="https://aframe.io/releases/1.7.1/aframe-inspector.min.js" defer></script> <!-- Debug (optional) -->
+  <script src="https://unpkg.com/aframe-troika-text/dist/aframe-troika-text.min.js" defer></script> <!-- scharfer Text in VR -->
+  <script src="vr.js" defer></script> <!-- Start-VR Button + PointerLock (Mouselook) -->
+  <!-- Unified App Entry: Bootstrap + Input + Overlay UI -->
+  <script type="module" src="app.js"></script>
+  <link rel="stylesheet" href="base.css">
+  <link rel="stylesheet" href="overlay.css">
+</head>
+
+<body class="scene-page">
+  <!-- Semantik: header (DOM-Overlay), main (A-Frame Scene), footer (Credits) -->
+  <header>
+  <div id="ui-overlay">
+    <!-- ==============================================
+         UI Overlay (DOM-Overlay in WebXR)
+         ============================================== -->
+    <button id="back-home" data-href="landingpage.html">Zurück</button>
+    <button id="start-vr">Start VR</button>
+
+    <!-- ADHS Simulation Steuerung (wie Hörsaal/Desk) -->
+    <div id="adhs-controls">
+      <h3>ADHS Simulation</h3>
+      <div class="intensity-display">
+        <strong>Intensität:</strong> <span id="adhs-level">Aus</span>
+      </div>
+      <hr>
+      <div class="keyboard-controls">
+        <strong>Steuerung:</strong><br>
+        <button id="adhs-btn-plus">+</button> <kbd>Q</kbd> (Level ↑)<br>
+        <button id="adhs-btn-minus">-</button> <kbd>W</kbd> (Level ↓)<br>
+        <button id="adhs-btn-toggle">O</button> <kbd>O</kbd> (Start/Stop)<br>
+        <button id="adhs-btn-givein">G</button> <kbd>G</kbd> (Nachgeben)<br>
+        <button id="adhs-btn-refocus">R</button> <kbd>R</kbd> (Refocus)
+      </div>
+    </div>
+  </div>
+  </header>
+
+  <main>
+  <!-- WebXR: DOM-Overlay wird hier nicht angefordert, um Warnungen bei nicht unterstützten Features zu vermeiden. -->
+  <a-scene background="color: #e0e7ef" renderer="colorManagement: true; physicallyCorrectLights: true; exposure: 0.85; antialias: true" shadow="type: pcfsoft">
+    <a-assets>
+      <img id="tex-floor" src="Assets/Textures/textures/floor.png" />
+      <img id="tex-wall-plaster" src="Assets/Textures/textures/painted_plaster_wall_disp_4k.png" />
+      <img id="tex-shelf" src="Assets/Textures/textures/painted_plaster_wall_disp_4k.png" />
+
+  <!-- Ambient-Sound Asset: wird vom A-Frame sound-Component verwendet (Start per User-Geste) -->
+	  <audio id="snd-supermarket-amb" src="Assets/Textures/sounds/supermarket-17823.mp3" preload="auto" crossorigin="anonymous"></audio>
+    </a-assets>
+
+    <a-sky color="#e0e7ef"></a-sky>
+
+    <!-- Licht -->
+    <a-entity id="ambient-light" light="type: ambient; intensity: 0.22"></a-entity>
+    <a-entity id="hemisphere-light" light="type: hemisphere; intensity: 0.45; color: #ffffff; groundColor: #c7c7c7"></a-entity>
+    <a-entity id="directional-light" light="type: directional; intensity: 0.75; castShadow: true; shadowMapWidth: 1024; shadowMapHeight: 1024" position="2 7 4" rotation="-40 20 0"></a-entity>
+    <a-entity light="type: point; intensity: 0.40; distance: 18; decay: 2" position="-4 4 0"></a-entity>
+    <a-entity light="type: point; intensity: 0.40; distance: 18; decay: 2" position="4 4 0"></a-entity>
+    <a-entity light="type: point; intensity: 0.38; distance: 18; decay: 2" position="0 4 -4"></a-entity>
+    <a-entity light="type: point; intensity: 0.38; distance: 18; decay: 2" position="0 4 4"></a-entity>
+
+    <!-- Raum -->
+    <a-plane id="floorPlane" position="0 0 0" rotation="-90 0 0" width="22" height="16" material="src:#tex-floor; repeat:10 6; metalness:0.0; roughness:0.92" shadow="receive:true"></a-plane>
+    <a-plane position="0 5 0" rotation="90 0 0" width="22" height="16" color="#ffffff"></a-plane>
+
+    <!-- A-Frame Sound Entity: Simulation bevorzugt dieses Element für den Loop -->
+    <a-entity id="ambience-supermarket" data-play-on-vr="1" sound="src:#snd-supermarket-amb; autoplay:false; loop:true; volume:0.18"></a-entity>
+
+    <a-plane position="0 2.5 -8" width="22" height="5" src="#tex-wall-plaster" repeat="5 2"></a-plane>
+    <a-plane position="0 2.5 8" rotation="0 180 0" width="22" height="5" src="#tex-wall-plaster" repeat="5 2"></a-plane>
+    <a-plane position="-11 2.5 0" rotation="0 90 0" width="16" height="5" src="#tex-wall-plaster" repeat="4 2"></a-plane>
+    <a-plane position="11 2.5 0" rotation="0 -90 0" width="16" height="5" src="#tex-wall-plaster" repeat="4 2"></a-plane>
+
+    <!-- Fenster / Eingang: an den Wänden am Ende des Gangs -->
+    <a-entity id="views">
+      <!-- HINTEN (z = -8): Fenster rechts + Landschaft (wie hoersaal: mit Rahmen) -->
+      <a-entity position="6.2 0 -7.99">
+        <!-- Fensterrahmen detailliert -->
+        <a-box position="0 2.35 0.03" width="4.35" height="0.18" depth="0.22" color="#f2f2f2"></a-box>
+        <a-box position="0 0.95 0.03" width="4.35" height="0.18" depth="0.22" color="#f2f2f2"></a-box>
+        <a-box position="-2.08 1.65 0.03" width="0.18" height="2.8" depth="0.22" color="#f2f2f2"></a-box>
+        <a-box position="2.08 1.65 0.03" width="0.18" height="2.8" depth="0.22" color="#f2f2f2"></a-box>
+        
+        <!-- Glas -->
+        <a-plane position="0 1.65 0.08" width="3.9" height="2.4" material="color:#bde0fe; opacity:0.18; transparent:true"></a-plane>
+        
+        <!-- Sprossen -->
+        <a-box position="0 1.65 0.06" width="0.06" height="2.5" depth="0.06" color="#f2f2f2"></a-box>
+        <a-box position="-1.0 1.65 0.06" width="0.06" height="2.5" depth="0.06" color="#f2f2f2"></a-box>
+        <a-box position="1.0 1.65 0.06" width="0.06" height="2.5" depth="0.06" color="#f2f2f2"></a-box>
+        <a-box position="0 0.85 0.06" width="4.0" height="0.06" depth="0.06" color="#f2f2f2"></a-box>
+        <a-box position="0 2.45 0.06" width="4.0" height="0.06" depth="0.06" color="#f2f2f2"></a-box>
+        
+        <!-- Landschaft (hinter dem Glas) -->
+        <a-plane position="0 2.35 -0.02" width="3.88" height="2.28" material="color:#87ceeb; shader:flat"></a-plane>
+        <a-plane position="0 1.6 -0.018" width="3.88" height="0.8" material="color:#86efac; shader:flat"></a-plane>
+        <a-entity position="-1.4 1.55 -0.017">
+          <a-cone radius-bottom="0.26" radius-top="0.02" height="0.6" color="#22c55e"></a-cone>
+          <a-cylinder position="0 -0.34 0" radius="0.035" height="0.22" color="#7c4a2d"></a-cylinder>
+        </a-entity>
+        <a-entity position="0 1.6 -0.017">
+          <a-cone radius-bottom="0.32" radius-top="0.02" height="0.75" color="#16a34a"></a-cone>
+          <a-cylinder position="0 -0.42 0" radius="0.04" height="0.24" color="#7c4a2d"></a-cylinder>
+        </a-entity>
+        <a-entity position="1.4 1.55 -0.017">
+          <a-cone radius-bottom="0.24" radius-top="0.02" height="0.55" color="#22c55e"></a-cone>
+          <a-cylinder position="0 -0.31 0" radius="0.034" height="0.2" color="#7c4a2d"></a-cylinder>
+        </a-entity>
+      </a-entity>
+
+      <!-- VORNE (z = 8): Eingangstür links + Parkplatz (wie hoersaal: detailliert) -->
+      <a-entity position="-6.8 0 7.99" rotation="0 180 0">
+        <!-- Türrahmen -->
+        <a-box position="0 2.1 0.03" width="3.15" height="0.18" depth="0.22" color="#f2f2f2"></a-box>
+        <a-box position="0 0.45 0.03" width="3.15" height="0.18" depth="0.22" color="#f2f2f2"></a-box>
+        <a-box position="-1.48 1.28 0.03" width="0.18" height="3.5" depth="0.22" color="#f2f2f2"></a-box>
+        <a-box position="1.48 1.28 0.03" width="0.18" height="3.5" depth="0.22" color="#f2f2f2"></a-box>
+        <a-box position="0 1.28 0.03" width="0.14" height="3.5" depth="0.22" color="#f2f2f2"></a-box>
+        
+        <!-- Öffnung / dunkler Durchgang -->
+        <a-plane position="0 1.28 0.01" width="2.85" height="3.2" material="color:#0b1220; shader:flat"></a-plane>
+        
+        <!-- Türflügel (Glas) -->
+        <a-plane position="-0.7 1.28 0.08" width="1.3" height="3.0" material="color:#bde0fe; opacity:0.16; transparent:true"></a-plane>
+        <a-plane position="0.7 1.28 0.08" width="1.3" height="3.0" material="color:#bde0fe; opacity:0.16; transparent:true"></a-plane>
+        
+        <!-- Griffe -->
+        <a-box position="-0.2 1.28 0.11" width="0.08" height="0.5" depth="0.04" color="#111827"></a-box>
+        <a-box position="0.2 1.28 0.11" width="0.08" height="0.5" depth="0.04" color="#111827"></a-box>
+      </a-entity>
+    </a-entity>
+
+    <!-- Außenbereich vor dem Supermarkt: Parkplatz -->
+    <a-entity id="outside-parking" position="0 0 0">
+      <!-- Parkplatz (nur außerhalb, z > 9) -->
+      <a-plane position="0 0 15" rotation="-90 0 0" width="24" height="12" color="#9ca3af"></a-plane>
+
+      <!-- Parkstreifen -->
+      <a-plane position="-6 0.01 13" rotation="-90 0 0" width="2.5" height="0.12" color="#ffffff"></a-plane>
+      <a-plane position="-3 0.01 13" rotation="-90 0 0" width="2.5" height="0.12" color="#ffffff"></a-plane>
+      <a-plane position="0 0.01 13" rotation="-90 0 0" width="2.5" height="0.12" color="#ffffff"></a-plane>
+      <a-plane position="3 0.01 13" rotation="-90 0 0" width="2.5" height="0.12" color="#ffffff"></a-plane>
+      <a-plane position="6 0.01 13" rotation="-90 0 0" width="2.5" height="0.12" color="#ffffff"></a-plane>
+
+      <!-- Autos auf dem Parkplatz -->
+      <a-entity position="-6 0 13.5">
+        <a-box width="1.8" height="0.5" depth="0.9" color="#ef4444"></a-box>
+        <a-box position="0 0.38 0" width="1.1" height="0.35" depth="0.85" color="#fecaca"></a-box>
+        <a-cylinder position="-0.7 -0.28 0.5" radius="0.16" height="0.08" rotation="90 0 0" color="#111"></a-cylinder>
+        <a-cylinder position="0.7 -0.28 0.5" radius="0.16" height="0.08" rotation="90 0 0" color="#111"></a-cylinder>
+        <a-cylinder position="-0.7 -0.28 -0.5" radius="0.16" height="0.08" rotation="90 0 0" color="#111"></a-cylinder>
+        <a-cylinder position="0.7 -0.28 -0.5" radius="0.16" height="0.08" rotation="90 0 0" color="#111"></a-cylinder>
+      </a-entity>
+      <a-entity position="0 0 13.5" rotation="0 8 0">
+        <a-box width="1.9" height="0.5" depth="0.95" color="#3b82f6"></a-box>
+        <a-box position="0 0.38 0" width="1.15" height="0.35" depth="0.9" color="#bfdbfe"></a-box>
+        <a-cylinder position="-0.75 -0.28 0.52" radius="0.16" height="0.08" rotation="90 0 0" color="#111"></a-cylinder>
+        <a-cylinder position="0.75 -0.28 0.52" radius="0.16" height="0.08" rotation="90 0 0" color="#111"></a-cylinder>
+        <a-cylinder position="-0.75 -0.28 -0.52" radius="0.16" height="0.08" rotation="90 0 0" color="#111"></a-cylinder>
+        <a-cylinder position="0.75 -0.28 -0.52" radius="0.16" height="0.08" rotation="90 0 0" color="#111"></a-cylinder>
+      </a-entity>
+      <a-entity position="6 0 13.5" rotation="0 -5 0">
+        <a-box width="1.85" height="0.5" depth="0.92" color="#22c55e"></a-box>
+        <a-box position="0 0.38 0" width="1.12" height="0.35" depth="0.87" color="#bbf7d0"></a-box>
+        <a-cylinder position="-0.72 -0.28 0.51" radius="0.16" height="0.08" rotation="90 0 0" color="#111"></a-cylinder>
+        <a-cylinder position="0.72 -0.28 0.51" radius="0.16" height="0.08" rotation="90 0 0" color="#111"></a-cylinder>
+        <a-cylinder position="-0.72 -0.28 -0.51" radius="0.16" height="0.08" rotation="90 0 0" color="#111"></a-cylinder>
+        <a-cylinder position="0.72 -0.28 -0.51" radius="0.16" height="0.08" rotation="90 0 0" color="#111"></a-cylinder>
+      </a-entity>
+
+      <!-- Einkaufswagen-Station -->
+      <a-entity position="-9.5 0 10">
+        <a-box width="1.5" height="1.2" depth="0.8" color="#c7c7c7"></a-box>
+        <a-entity position="-0.5 0.35 0"><a-box width="0.3" height="0.5" depth="0.4" color="#888"></a-box><a-cylinder position="0 -0.3 0.15" radius="0.06" height="0.12" color="#333"></a-cylinder></a-entity>
+        <a-entity position="-0.2 0.35 0"><a-box width="0.3" height="0.5" depth="0.4" color="#888"></a-box><a-cylinder position="0 -0.3 0.15" radius="0.06" height="0.12" color="#333"></a-cylinder></a-entity>
+        <a-entity position="0.1 0.35 0"><a-box width="0.3" height="0.5" depth="0.4" color="#888"></a-box><a-cylinder position="0 -0.3 0.15" radius="0.06" height="0.12" color="#333"></a-cylinder></a-entity>
+      </a-entity>
+
+      <!-- Laternen auf dem Parkplatz -->
+      <a-entity position="-9 0 16"><a-cylinder radius="0.08" height="4.5" color="#666"></a-cylinder><a-sphere position="0 2.4 0" radius="0.22" material="color:#fffacd; emissive:#fffacd; emissiveIntensity:0.4"></a-sphere></a-entity>
+      <a-entity position="9 0 16"><a-cylinder radius="0.08" height="4.5" color="#666"></a-cylinder><a-sphere position="0 2.4 0" radius="0.22" material="color:#fffacd; emissive:#fffacd; emissiveIntensity:0.4"></a-sphere></a-entity>
+
+      <!-- Bäume am Rand -->
+      <a-entity position="-11 0 18"><a-cylinder position="0 0.8 0" radius="0.16" height="1.6" color="#7a5c3a"></a-cylinder><a-sphere position="0 2.1 0" radius="0.95" color="#2f8f4e"></a-sphere></a-entity>
+      <a-entity position="11 0 12"><a-cylinder position="0 0.75 0" radius="0.15" height="1.5" color="#7a5c3a"></a-cylinder><a-sphere position="0 1.95 0" radius="0.9" color="#2f8f4e"></a-sphere></a-entity>
+    </a-entity>
+
+    <!-- Deckenleuchten -->
+    <a-entity id="ceiling-lights">
+      <a-box position="-5 4.9 -2" width="0.4" height="0.06" depth="10" material="color:#ffffff; emissive:#ffffff; emissiveIntensity:0.7; metalness:0.1; roughness:0.9"></a-box>
+      <a-box position="0 4.9 -2" width="0.4" height="0.06" depth="10" material="color:#ffffff; emissive:#ffffff; emissiveIntensity:0.7; metalness:0.1; roughness:0.9"></a-box>
+      <a-box position="5 4.9 -2" width="0.4" height="0.06" depth="10" material="color:#ffffff; emissive:#ffffff; emissiveIntensity:0.7; metalness:0.1; roughness:0.9"></a-box>
+      <!-- Zusätzliche Deckenleuchten für bessere Ausleuchtung -->
+      <a-box position="-5 4.9 4" width="0.4" height="0.06" depth="4" material="color:#ffffff; emissive:#ffffff; emissiveIntensity:0.7; metalness:0.1; roughness:0.9"></a-box>
+      <a-box position="5 4.9 4" width="0.4" height="0.06" depth="4" material="color:#ffffff; emissive:#ffffff; emissiveIntensity:0.7; metalness:0.1; roughness:0.9"></a-box>
+
+	  <!-- Tatsächliche Lichtquellen passend zu den Leuchten (wenige Spots für Performance) -->
+	  <a-entity light="type: spot; intensity: 0.22; angle: 85; penumbra: 0.65; distance: 18; decay: 2" position="-5 4.85 -2" rotation="-90 0 0"></a-entity>
+	  <a-entity light="type: spot; intensity: 0.22; angle: 85; penumbra: 0.65; distance: 18; decay: 2" position="0 4.85 -2" rotation="-90 0 0"></a-entity>
+	  <a-entity light="type: spot; intensity: 0.22; angle: 85; penumbra: 0.65; distance: 18; decay: 2" position="5 4.85 -2" rotation="-90 0 0"></a-entity>
+	  <a-entity light="type: spot; intensity: 0.18; angle: 80; penumbra: 0.7; distance: 14; decay: 2" position="-5 4.85 4" rotation="-90 0 0"></a-entity>
+	  <a-entity light="type: spot; intensity: 0.18; angle: 80; penumbra: 0.7; distance: 14; decay: 2" position="5 4.85 4" rotation="-90 0 0"></a-entity>
+    </a-entity>
+
+    <!-- Decke: dezentes Raster (wirkt wie Deckenplatten/Schienen) -->
+    <a-entity id="ceiling-grid" position="0 4.975 0" shadow="cast:false; receive:false">
+      <!-- längs -->
+      <a-box position="-7 0 0" width="0.04" height="0.03" depth="16" material="color:#e5e7eb; metalness:0.05; roughness:0.95"></a-box>
+      <a-box position="-3.5 0 0" width="0.04" height="0.03" depth="16" material="color:#e5e7eb; metalness:0.05; roughness:0.95"></a-box>
+      <a-box position="0 0 0" width="0.04" height="0.03" depth="16" material="color:#e5e7eb; metalness:0.05; roughness:0.95"></a-box>
+      <a-box position="3.5 0 0" width="0.04" height="0.03" depth="16" material="color:#e5e7eb; metalness:0.05; roughness:0.95"></a-box>
+      <a-box position="7 0 0" width="0.04" height="0.03" depth="16" material="color:#e5e7eb; metalness:0.05; roughness:0.95"></a-box>
+      <!-- quer -->
+      <a-box position="0 0 -6" width="22" height="0.03" depth="0.04" material="color:#e5e7eb; metalness:0.05; roughness:0.95"></a-box>
+      <a-box position="0 0 -2" width="22" height="0.03" depth="0.04" material="color:#e5e7eb; metalness:0.05; roughness:0.95"></a-box>
+      <a-box position="0 0 2" width="22" height="0.03" depth="0.04" material="color:#e5e7eb; metalness:0.05; roughness:0.95"></a-box>
+      <a-box position="0 0 6" width="22" height="0.03" depth="0.04" material="color:#e5e7eb; metalness:0.05; roughness:0.95"></a-box>
+    </a-entity>
+
+    <!-- Eingang / Frontbereich -->
+    <a-box position="0 0.05 6.8" width="6" height="0.1" depth="2" material="color:#d9d9d9; metalness:0.15; roughness:0.75"></a-box>
+    <a-plane position="0 4.2 7.9" rotation="0 180 0" width="8" height="1.2" material="color:#111827; shader:flat"></a-plane>
+    <a-troika-text value="SUPERMARKT" align="center" color="#ffffff" max-width="10" font-size="0.9" position="0 4.2 7.92"></a-troika-text>
+
+    <!-- Eingang: Sicherheitsgates + Korb-/Wagenbereich -->
+    <a-entity id="entrance-area" position="0 0 6.25">
+      <!-- Gates -->
+      <a-entity position="-1.2 0 0">
+        <a-box position="0 0.55 0" width="0.22" height="1.1" depth="0.32" material="color:#9ca3af; metalness:0.25; roughness:0.55"></a-box>
+        <a-plane position="0.17 0.75 0" rotation="0 90 0" width="0.65" height="0.9" material="color:#bde0fe; opacity:0.18; transparent:true; side:double"></a-plane>
+      </a-entity>
+      <a-entity position="1.2 0 0">
+        <a-box position="0 0.55 0" width="0.22" height="1.1" depth="0.32" material="color:#9ca3af; metalness:0.25; roughness:0.55"></a-box>
+        <a-plane position="-0.17 0.75 0" rotation="0 -90 0" width="0.65" height="0.9" material="color:#bde0fe; opacity:0.18; transparent:true; side:double"></a-plane>
+      </a-entity>
+
+      <!-- Körbe stapeln -->
+      <a-entity position="-2.6 0.05 0.4" rotation="0 12 0">
+        <a-box position="0 0.18 0" width="0.65" height="0.35" depth="0.45" material="color:#ef4444; metalness:0.1; roughness:0.8"></a-box>
+        <a-box position="0 0.24 0" width="0.58" height="0.25" depth="0.38" material="color:#111827; opacity:0.12; transparent:true"></a-box>
+        <a-box position="0 0.38 0" width="0.62" height="0.33" depth="0.42" material="color:#ef4444; metalness:0.1; roughness:0.8"></a-box>
+        <a-box position="0 0.44 0" width="0.55" height="0.23" depth="0.35" material="color:#111827; opacity:0.12; transparent:true"></a-box>
+      </a-entity>
+    </a-entity>
+
+    <!-- Bodenmarkierungen (Schlange/Kasse) -->
+    <a-entity id="queue-markings" shadow="cast:false; receive:false">
+      <a-plane position="6.2 0.011 4.0" rotation="-90 0 0" width="0.15" height="2.8" material="color:#ffffff; opacity:0.55; transparent:true"></a-plane>
+      <a-plane position="6.2 0.011 1.0" rotation="-90 0 0" width="0.15" height="2.8" material="color:#ffffff; opacity:0.55; transparent:true"></a-plane>
+      <a-plane position="6.2 0.011 -2.0" rotation="-90 0 0" width="0.15" height="2.8" material="color:#ffffff; opacity:0.55; transparent:true"></a-plane>
+      <a-plane position="7.6 0.011 4.0" rotation="-90 0 0" width="0.15" height="2.8" material="color:#ffffff; opacity:0.55; transparent:true"></a-plane>
+      <a-plane position="7.6 0.011 1.0" rotation="-90 0 0" width="0.15" height="2.8" material="color:#ffffff; opacity:0.55; transparent:true"></a-plane>
+      <a-plane position="7.6 0.011 -2.0" rotation="-90 0 0" width="0.15" height="2.8" material="color:#ffffff; opacity:0.55; transparent:true"></a-plane>
+    </a-entity>
+
+    <!-- Logo / Deko am Eingang -->
+    <a-entity position="3.5 3.5 7.9" rotation="0 180 0">
+      <a-sphere radius="0.4" color="#22c55e"></a-sphere>
+      <a-troika-text value="BIO" align="center" color="#ffffff" max-width="1.0" font-size="0.28" position="0 0 0.42"></a-troika-text>
+    </a-entity>
+
+    <!-- Wanddeko / Schilder -->
+    <a-entity id="signage">
+      <!-- Werbeplakate -->
+      <a-plane position="-10.95 2.2 2" rotation="0 90 0" width="1.8" height="2.2" color="#ffffff"></a-plane>
+      <a-text value="ANGEBOT\n2+1" position="-10.9 2.35 2" rotation="0 90 0" width="4" color="#ef4444" align="center"></a-text>
+
+      <a-plane position="10.95 2.2 -1" rotation="0 -90 0" width="1.8" height="2.2" color="#ffffff"></a-plane>
+      <a-text value="FRISCH\n& LECKER" position="10.9 2.35 -1" rotation="0 -90 0" width="4" color="#22c55e" align="center"></a-text>
+
+      <!-- Ausgang Schild -->
+      <a-plane position="-2.5 4.2 7.95" rotation="0 180 0" width="2.2" height="0.8" color="#111"></a-plane>
+      <a-text value="AUSGANG" position="-2.5 4.2 7.96" rotation="0 180 0" width="4" color="#ffffff" align="center"></a-text>
+    </a-entity>
+
+    <!-- Regalgänge (Primitives) -->
+    <a-entity id="shelves">
+      <!-- Gang 1 (lang) -->
+      <a-entity position="-3 0 0">
+        <!-- Boden / Sockel -->
+        <a-box position="0 0.08 0" width="3.9" height="0.16" depth="10" material="color:#cbd5e1; metalness:0.15; roughness:0.75"></a-box>
+
+        <!-- Rückwände -->
+        <a-box position="-1.78 1.15 0" width="0.06" height="2.3" depth="10" material="src:#tex-shelf; repeat:1 6; metalness:0.08; roughness:0.9"></a-box>
+        <a-box position="1.78 1.15 0" width="0.06" height="2.3" depth="10" material="src:#tex-shelf; repeat:1 6; metalness:0.08; roughness:0.9"></a-box>
+
+        <!-- Vertikale Stützen (3 pro Seite) -->
+        <a-box position="-1.65 1.15 -4.9" width="0.08" height="2.3" depth="0.14" material="color:#94a3b8; metalness:0.25; roughness:0.6"></a-box>
+        <a-box position="-1.65 1.15 0" width="0.08" height="2.3" depth="0.14" material="color:#94a3b8; metalness:0.25; roughness:0.6"></a-box>
+        <a-box position="-1.65 1.15 4.9" width="0.08" height="2.3" depth="0.14" material="color:#94a3b8; metalness:0.25; roughness:0.6"></a-box>
+
+        <a-box position="1.65 1.15 -4.9" width="0.08" height="2.3" depth="0.14" material="color:#94a3b8; metalness:0.25; roughness:0.6"></a-box>
+        <a-box position="1.65 1.15 0" width="0.08" height="2.3" depth="0.14" material="color:#94a3b8; metalness:0.25; roughness:0.6"></a-box>
+        <a-box position="1.65 1.15 4.9" width="0.08" height="2.3" depth="0.14" material="color:#94a3b8; metalness:0.25; roughness:0.6"></a-box>
+
+        <!-- Regalböden (links/rechts, 5 Ebenen) -->
+        <a-box position="-1.35 0.28 0" width="0.9" height="0.06" depth="10" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+        <a-box position="-1.35 0.73 0" width="0.9" height="0.06" depth="10" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+        <a-box position="-1.35 1.18 0" width="0.9" height="0.06" depth="10" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+        <a-box position="-1.35 1.63 0" width="0.9" height="0.06" depth="10" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+        <a-box position="-1.35 2.08 0" width="0.9" height="0.06" depth="10" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+
+        <a-box position="1.35 0.28 0" width="0.9" height="0.06" depth="10" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+        <a-box position="1.35 0.73 0" width="0.9" height="0.06" depth="10" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+        <a-box position="1.35 1.18 0" width="0.9" height="0.06" depth="10" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+        <a-box position="1.35 1.63 0" width="0.9" height="0.06" depth="10" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+        <a-box position="1.35 2.08 0" width="0.9" height="0.06" depth="10" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+
+        <!-- Preisleisten (Front-Edge) -->
+        <a-entity id="gang1-price-rails" shadow="cast:false; receive:false">
+          <!-- links (zeigt Richtung +X) -->
+          <a-plane position="-0.89 0.33 0" rotation="0 90 0" width="10" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+          <a-plane position="-0.89 0.78 0" rotation="0 90 0" width="10" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+          <a-plane position="-0.89 1.23 0" rotation="0 90 0" width="10" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+          <a-plane position="-0.89 1.68 0" rotation="0 90 0" width="10" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+          <a-plane position="-0.89 2.13 0" rotation="0 90 0" width="10" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+
+          <!-- rechts (zeigt Richtung -X) -->
+          <a-plane position="0.89 0.33 0" rotation="0 -90 0" width="10" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+          <a-plane position="0.89 0.78 0" rotation="0 -90 0" width="10" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+          <a-plane position="0.89 1.23 0" rotation="0 -90 0" width="10" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+          <a-plane position="0.89 1.68 0" rotation="0 -90 0" width="10" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+          <a-plane position="0.89 2.13 0" rotation="0 -90 0" width="10" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+        </a-entity>
+
+        <!-- Gang-Schild (VR-lesbar) -->
+        <a-plane position="0 2.52 -4.2" rotation="0 180 0" width="2.8" height="0.55" material="color:#0f172a; shader:flat"></a-plane>
+        <a-troika-text value="SNACKS" align="center" color="#ffffff" max-width="2.6" font-size="0.32" position="0 2.52 -4.19" rotation="0 180 0"></a-troika-text>
+      </a-entity>
+
+      <!-- Gang 2 (lang) -->
+      <a-entity position="3 0 0">
+        <a-box position="0 0.08 0" width="3.9" height="0.16" depth="10" material="color:#cbd5e1; metalness:0.15; roughness:0.75"></a-box>
+
+        <a-box position="-1.78 1.15 0" width="0.06" height="2.3" depth="10" material="src:#tex-shelf; repeat:1 6; metalness:0.08; roughness:0.9"></a-box>
+        <a-box position="1.78 1.15 0" width="0.06" height="2.3" depth="10" material="src:#tex-shelf; repeat:1 6; metalness:0.08; roughness:0.9"></a-box>
+
+        <a-box position="-1.65 1.15 -4.9" width="0.08" height="2.3" depth="0.14" material="color:#94a3b8; metalness:0.25; roughness:0.6"></a-box>
+        <a-box position="-1.65 1.15 0" width="0.08" height="2.3" depth="0.14" material="color:#94a3b8; metalness:0.25; roughness:0.6"></a-box>
+        <a-box position="-1.65 1.15 4.9" width="0.08" height="2.3" depth="0.14" material="color:#94a3b8; metalness:0.25; roughness:0.6"></a-box>
+
+        <a-box position="1.65 1.15 -4.9" width="0.08" height="2.3" depth="0.14" material="color:#94a3b8; metalness:0.25; roughness:0.6"></a-box>
+        <a-box position="1.65 1.15 0" width="0.08" height="2.3" depth="0.14" material="color:#94a3b8; metalness:0.25; roughness:0.6"></a-box>
+        <a-box position="1.65 1.15 4.9" width="0.08" height="2.3" depth="0.14" material="color:#94a3b8; metalness:0.25; roughness:0.6"></a-box>
+
+        <a-box position="-1.35 0.28 0" width="0.9" height="0.06" depth="10" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+        <a-box position="-1.35 0.73 0" width="0.9" height="0.06" depth="10" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+        <a-box position="-1.35 1.18 0" width="0.9" height="0.06" depth="10" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+        <a-box position="-1.35 1.63 0" width="0.9" height="0.06" depth="10" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+        <a-box position="-1.35 2.08 0" width="0.9" height="0.06" depth="10" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+
+        <a-box position="1.35 0.28 0" width="0.9" height="0.06" depth="10" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+        <a-box position="1.35 0.73 0" width="0.9" height="0.06" depth="10" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+        <a-box position="1.35 1.18 0" width="0.9" height="0.06" depth="10" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+        <a-box position="1.35 1.63 0" width="0.9" height="0.06" depth="10" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+        <a-box position="1.35 2.08 0" width="0.9" height="0.06" depth="10" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+
+        <!-- Preisleisten (Front-Edge) -->
+        <a-entity id="gang2-price-rails" shadow="cast:false; receive:false">
+          <a-plane position="-0.89 0.33 0" rotation="0 90 0" width="10" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+          <a-plane position="-0.89 0.78 0" rotation="0 90 0" width="10" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+          <a-plane position="-0.89 1.23 0" rotation="0 90 0" width="10" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+          <a-plane position="-0.89 1.68 0" rotation="0 90 0" width="10" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+          <a-plane position="-0.89 2.13 0" rotation="0 90 0" width="10" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+
+          <a-plane position="0.89 0.33 0" rotation="0 -90 0" width="10" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+          <a-plane position="0.89 0.78 0" rotation="0 -90 0" width="10" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+          <a-plane position="0.89 1.23 0" rotation="0 -90 0" width="10" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+          <a-plane position="0.89 1.68 0" rotation="0 -90 0" width="10" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+          <a-plane position="0.89 2.13 0" rotation="0 -90 0" width="10" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+        </a-entity>
+
+        <!-- Gang-Schild (VR-lesbar) -->
+        <a-plane position="0 2.52 -4.2" rotation="0 180 0" width="2.8" height="0.55" material="color:#0f172a; shader:flat"></a-plane>
+        <a-troika-text value="GETRÄNKE" align="center" color="#ffffff" max-width="2.6" font-size="0.32" position="0 2.52 -4.19" rotation="0 180 0"></a-troika-text>
+      </a-entity>
+
+      <!-- Gang 3 (kurz) -->
+      <a-entity position="0 0 -4">
+        <a-box position="0 0.08 0" width="3.9" height="0.16" depth="6" material="color:#cbd5e1; metalness:0.15; roughness:0.75"></a-box>
+
+        <a-box position="-1.78 1.15 0" width="0.06" height="2.3" depth="6" material="src:#tex-shelf; repeat:1 4; metalness:0.08; roughness:0.9"></a-box>
+        <a-box position="1.78 1.15 0" width="0.06" height="2.3" depth="6" material="src:#tex-shelf; repeat:1 4; metalness:0.08; roughness:0.9"></a-box>
+
+        <a-box position="-1.65 1.15 -2.9" width="0.08" height="2.3" depth="0.14" material="color:#94a3b8; metalness:0.25; roughness:0.6"></a-box>
+        <a-box position="-1.65 1.15 0" width="0.08" height="2.3" depth="0.14" material="color:#94a3b8; metalness:0.25; roughness:0.6"></a-box>
+        <a-box position="-1.65 1.15 2.9" width="0.08" height="2.3" depth="0.14" material="color:#94a3b8; metalness:0.25; roughness:0.6"></a-box>
+
+        <a-box position="1.65 1.15 -2.9" width="0.08" height="2.3" depth="0.14" material="color:#94a3b8; metalness:0.25; roughness:0.6"></a-box>
+        <a-box position="1.65 1.15 0" width="0.08" height="2.3" depth="0.14" material="color:#94a3b8; metalness:0.25; roughness:0.6"></a-box>
+        <a-box position="1.65 1.15 2.9" width="0.08" height="2.3" depth="0.14" material="color:#94a3b8; metalness:0.25; roughness:0.6"></a-box>
+
+        <a-box position="-1.35 0.28 0" width="0.9" height="0.06" depth="6" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+        <a-box position="-1.35 0.73 0" width="0.9" height="0.06" depth="6" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+        <a-box position="-1.35 1.18 0" width="0.9" height="0.06" depth="6" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+        <a-box position="-1.35 1.63 0" width="0.9" height="0.06" depth="6" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+        <a-box position="-1.35 2.08 0" width="0.9" height="0.06" depth="6" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+
+        <a-box position="1.35 0.28 0" width="0.9" height="0.06" depth="6" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+        <a-box position="1.35 0.73 0" width="0.9" height="0.06" depth="6" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+        <a-box position="1.35 1.18 0" width="0.9" height="0.06" depth="6" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+        <a-box position="1.35 1.63 0" width="0.9" height="0.06" depth="6" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+        <a-box position="1.35 2.08 0" width="0.9" height="0.06" depth="6" material="color:#e5e7eb; metalness:0.15; roughness:0.65"></a-box>
+
+        <!-- Preisleisten (Front-Edge) -->
+        <a-entity id="gang3-price-rails" shadow="cast:false; receive:false">
+          <a-plane position="-0.89 0.33 0" rotation="0 90 0" width="6" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+          <a-plane position="-0.89 0.78 0" rotation="0 90 0" width="6" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+          <a-plane position="-0.89 1.23 0" rotation="0 90 0" width="6" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+          <a-plane position="-0.89 1.68 0" rotation="0 90 0" width="6" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+          <a-plane position="-0.89 2.13 0" rotation="0 90 0" width="6" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+
+          <a-plane position="0.89 0.33 0" rotation="0 -90 0" width="6" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+          <a-plane position="0.89 0.78 0" rotation="0 -90 0" width="6" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+          <a-plane position="0.89 1.23 0" rotation="0 -90 0" width="6" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+          <a-plane position="0.89 1.68 0" rotation="0 -90 0" width="6" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+          <a-plane position="0.89 2.13 0" rotation="0 -90 0" width="6" height="0.10" material="color:#fef3c7; roughness:0.95; metalness:0; opacity:0.95; transparent:true; side:double"></a-plane>
+        </a-entity>
+
+        <!-- Gang-Schild (VR-lesbar) -->
+        <a-plane position="0 2.52 -2.3" rotation="0 180 0" width="2.2" height="0.55" material="color:#0f172a; shader:flat"></a-plane>
+        <a-troika-text value="OBST" align="center" color="#ffffff" max-width="2.0" font-size="0.32" position="0 2.52 -2.29" rotation="0 180 0"></a-troika-text>
+      </a-entity>
+    </a-entity>
+
+    <!-- Produkte (als farbige Boxen auf Regalflächen) -->
+    <a-entity id="products">
+      <!-- Gang 1: viele Produkte auf allen Ebenen -->
+      <a-entity position="-3 0 0">
+        <!-- Links (SNACKS) -->
+        <a-entity position="-1.10 0.42 0">
+          <a-cylinder position="0 0 -4" radius="0.05" height="0.12" color="#ef4444"></a-cylinder>
+          <a-cylinder position="0 0 -2.5" radius="0.05" height="0.12" color="#f59e0b"></a-cylinder>
+          <a-cylinder position="0 0 -1" radius="0.05" height="0.12" color="#22c55e"></a-cylinder>
+          <a-cylinder position="0 0 1" radius="0.05" height="0.12" color="#60a5fa"></a-cylinder>
+          <a-cylinder position="0 0 2.5" radius="0.05" height="0.12" color="#a855f7"></a-cylinder>
+          <a-cylinder position="0 0 4" radius="0.05" height="0.12" color="#eab308"></a-cylinder>
+        </a-entity>
+        <a-entity position="-1.10 0.42 0">
+          <a-cylinder position="0 0 -3.25" radius="0.05" height="0.12" color="#fb7185"></a-cylinder>
+          <a-cylinder position="0 0 -1.75" radius="0.05" height="0.12" color="#38bdf8"></a-cylinder>
+          <a-cylinder position="0 0 -0.25" radius="0.05" height="0.12" color="#84cc16"></a-cylinder>
+          <a-cylinder position="0 0 1.75" radius="0.05" height="0.12" color="#f97316"></a-cylinder>
+          <a-cylinder position="0 0 3.25" radius="0.05" height="0.12" color="#a855f7"></a-cylinder>
+        </a-entity>
+        <a-entity position="-1.10 0.86 0">
+          <a-box position="0 0 -4" width="0.14" height="0.24" depth="0.06" color="#f97316"></a-box>
+          <a-box position="0 0 -2.5" width="0.14" height="0.22" depth="0.06" color="#22c55e"></a-box>
+          <a-box position="0 0 -1" width="0.14" height="0.24" depth="0.06" color="#3b82f6"></a-box>
+          <a-box position="0 0 1" width="0.14" height="0.22" depth="0.06" color="#ef4444"></a-box>
+          <a-box position="0 0 2.5" width="0.14" height="0.24" depth="0.06" color="#a855f7"></a-box>
+          <a-box position="0 0 4" width="0.14" height="0.22" depth="0.06" color="#0ea5e9"></a-box>
+        </a-entity>
+        <a-entity position="-1.10 0.86 0">
+          <a-box position="0 0 -3.25" width="0.14" height="0.22" depth="0.06" color="#eab308"></a-box>
+          <a-box position="0 0 -1.75" width="0.14" height="0.24" depth="0.06" color="#10b981"></a-box>
+          <a-box position="0 0 -0.25" width="0.14" height="0.22" depth="0.06" color="#f43f5e"></a-box>
+          <a-box position="0 0 1.75" width="0.14" height="0.24" depth="0.06" color="#60a5fa"></a-box>
+          <a-box position="0 0 3.25" width="0.14" height="0.22" depth="0.06" color="#a855f7"></a-box>
+        </a-entity>
+        <a-entity position="-1.10 1.31 0">
+          <a-entity position="0 0 -4">
+            <a-cylinder radius="0.04" height="0.26" color="#10b981"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 -2.5">
+            <a-cylinder radius="0.04" height="0.26" color="#60a5fa"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 -1">
+            <a-cylinder radius="0.04" height="0.26" color="#f43f5e"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 1">
+            <a-cylinder radius="0.04" height="0.26" color="#eab308"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 2.5">
+            <a-cylinder radius="0.04" height="0.26" color="#a855f7"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 4">
+            <a-cylinder radius="0.04" height="0.26" color="#fb7185"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+        </a-entity>
+        <a-entity position="-1.10 1.31 0">
+          <a-entity position="0 0 -3.25">
+            <a-cylinder radius="0.04" height="0.26" color="#22c55e"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 -1.75">
+            <a-cylinder radius="0.04" height="0.26" color="#60a5fa"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 -0.25">
+            <a-cylinder radius="0.04" height="0.26" color="#eab308"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 1.75">
+            <a-cylinder radius="0.04" height="0.26" color="#a855f7"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 3.25">
+            <a-cylinder radius="0.04" height="0.26" color="#f97316"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+        </a-entity>
+        <a-entity position="-1.10 1.76 0">
+          <a-entity position="0 0 -4">
+            <a-box width="0.12" height="0.22" depth="0.08" color="#ffffff"></a-box>
+            <a-sphere position="0 0.11 0" radius="0.06" color="#f3f4f6"></a-sphere>
+          </a-entity>
+          <a-entity position="0 0 -2.5">
+            <a-box width="0.12" height="0.22" depth="0.08" color="#fde68a"></a-box>
+            <a-sphere position="0 0.11 0" radius="0.06" color="#fef3c7"></a-sphere>
+          </a-entity>
+          <a-entity position="0 0 -1">
+            <a-box width="0.12" height="0.22" depth="0.08" color="#bbf7d0"></a-box>
+            <a-sphere position="0 0.11 0" radius="0.06" color="#dcfce7"></a-sphere>
+          </a-entity>
+          <a-entity position="0 0 1">
+            <a-box width="0.12" height="0.22" depth="0.08" color="#bfdbfe"></a-box>
+            <a-sphere position="0 0.11 0" radius="0.06" color="#dbeafe"></a-sphere>
+          </a-entity>
+          <a-entity position="0 0 2.5">
+            <a-box width="0.12" height="0.22" depth="0.08" color="#fbcfe8"></a-box>
+            <a-sphere position="0 0.11 0" radius="0.06" color="#fce7f3"></a-sphere>
+          </a-entity>
+          <a-entity position="0 0 4">
+            <a-box width="0.12" height="0.22" depth="0.08" color="#ddd6fe"></a-box>
+            <a-sphere position="0 0.11 0" radius="0.06" color="#ede9fe"></a-sphere>
+          </a-entity>
+        </a-entity>
+        <a-entity position="-1.10 1.76 0">
+          <a-entity position="0 0 -3.25">
+            <a-box width="0.12" height="0.22" depth="0.08" color="#ffffff"></a-box>
+            <a-sphere position="0 0.11 0" radius="0.06" color="#f3f4f6"></a-sphere>
+          </a-entity>
+          <a-entity position="0 0 -1.75">
+            <a-box width="0.12" height="0.22" depth="0.08" color="#fde68a"></a-box>
+            <a-sphere position="0 0.11 0" radius="0.06" color="#fef3c7"></a-sphere>
+          </a-entity>
+          <a-entity position="0 0 -0.25">
+            <a-box width="0.12" height="0.22" depth="0.08" color="#bbf7d0"></a-box>
+            <a-sphere position="0 0.11 0" radius="0.06" color="#dcfce7"></a-sphere>
+          </a-entity>
+          <a-entity position="0 0 1.75">
+            <a-box width="0.12" height="0.22" depth="0.08" color="#bfdbfe"></a-box>
+            <a-sphere position="0 0.11 0" radius="0.06" color="#dbeafe"></a-sphere>
+          </a-entity>
+          <a-entity position="0 0 3.25">
+            <a-box width="0.12" height="0.22" depth="0.08" color="#fbcfe8"></a-box>
+            <a-sphere position="0 0.11 0" radius="0.06" color="#fce7f3"></a-sphere>
+          </a-entity>
+        </a-entity>
+
+        <!-- Extra: zweite Reihe hinten (damit das Regal wirklich voll wirkt) -->
+        <a-entity position="-1.45 0.42 0">
+          <a-box position="0 0 -4" width="0.12" height="0.18" depth="0.10" color="#111827"></a-box>
+          <a-box position="0 0 -2.5" width="0.12" height="0.16" depth="0.10" color="#334155"></a-box>
+          <a-box position="0 0 -1" width="0.12" height="0.18" depth="0.10" color="#1f2937"></a-box>
+          <a-box position="0 0 1" width="0.12" height="0.16" depth="0.10" color="#0f172a"></a-box>
+          <a-box position="0 0 2.5" width="0.12" height="0.18" depth="0.10" color="#334155"></a-box>
+          <a-box position="0 0 4" width="0.12" height="0.16" depth="0.10" color="#111827"></a-box>
+        </a-entity>
+        <a-entity position="-1.45 0.86 0">
+          <a-cylinder position="0 0 -4" radius="0.045" height="0.20" color="#0ea5e9"></a-cylinder>
+          <a-cylinder position="0 0 -2.5" radius="0.045" height="0.20" color="#22c55e"></a-cylinder>
+          <a-cylinder position="0 0 -1" radius="0.045" height="0.20" color="#ef4444"></a-cylinder>
+          <a-cylinder position="0 0 1" radius="0.045" height="0.20" color="#eab308"></a-cylinder>
+          <a-cylinder position="0 0 2.5" radius="0.045" height="0.20" color="#a855f7"></a-cylinder>
+          <a-cylinder position="0 0 4" radius="0.045" height="0.20" color="#60a5fa"></a-cylinder>
+        </a-entity>
+        <a-entity position="-1.45 1.31 0">
+          <a-entity position="0 0 -4">
+            <a-cylinder radius="0.035" height="0.24" color="#f97316"></a-cylinder>
+            <a-cylinder position="0 0.14 0" radius="0.024" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 -2.5">
+            <a-cylinder radius="0.035" height="0.24" color="#22c55e"></a-cylinder>
+            <a-cylinder position="0 0.14 0" radius="0.024" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 -1">
+            <a-cylinder radius="0.035" height="0.24" color="#3b82f6"></a-cylinder>
+            <a-cylinder position="0 0.14 0" radius="0.024" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 1">
+            <a-cylinder radius="0.035" height="0.24" color="#ef4444"></a-cylinder>
+            <a-cylinder position="0 0.14 0" radius="0.024" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 2.5">
+            <a-cylinder radius="0.035" height="0.24" color="#a855f7"></a-cylinder>
+            <a-cylinder position="0 0.14 0" radius="0.024" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 4">
+            <a-cylinder radius="0.035" height="0.24" color="#0ea5e9"></a-cylinder>
+            <a-cylinder position="0 0.14 0" radius="0.024" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+        </a-entity>
+        <a-entity position="-1.45 1.76 0">
+          <a-box position="0 0 -4" width="0.10" height="0.20" depth="0.10" color="#fde68a"></a-box>
+          <a-box position="0 0 -2.5" width="0.10" height="0.20" depth="0.10" color="#bbf7d0"></a-box>
+          <a-box position="0 0 -1" width="0.10" height="0.20" depth="0.10" color="#bfdbfe"></a-box>
+          <a-box position="0 0 1" width="0.10" height="0.20" depth="0.10" color="#fbcfe8"></a-box>
+          <a-box position="0 0 2.5" width="0.10" height="0.20" depth="0.10" color="#ddd6fe"></a-box>
+          <a-box position="0 0 4" width="0.10" height="0.20" depth="0.10" color="#ffffff"></a-box>
+        </a-entity>
+
+        <!-- Rechts (SNACKS) -->
+        <a-entity position="1.10 0.42 0">
+          <a-cylinder position="0 0 -4" radius="0.05" height="0.12" color="#22c55e"></a-cylinder>
+          <a-cylinder position="0 0 -2.5" radius="0.05" height="0.12" color="#60a5fa"></a-cylinder>
+          <a-cylinder position="0 0 -1" radius="0.05" height="0.12" color="#ef4444"></a-cylinder>
+          <a-cylinder position="0 0 1" radius="0.05" height="0.12" color="#eab308"></a-cylinder>
+          <a-cylinder position="0 0 2.5" radius="0.05" height="0.12" color="#a855f7"></a-cylinder>
+          <a-cylinder position="0 0 4" radius="0.05" height="0.12" color="#f97316"></a-cylinder>
+        </a-entity>
+        <a-entity position="1.10 0.42 0">
+          <a-cylinder position="0 0 -3.25" radius="0.05" height="0.12" color="#eab308"></a-cylinder>
+          <a-cylinder position="0 0 -1.75" radius="0.05" height="0.12" color="#0ea5e9"></a-cylinder>
+          <a-cylinder position="0 0 -0.25" radius="0.05" height="0.12" color="#84cc16"></a-cylinder>
+          <a-cylinder position="0 0 1.75" radius="0.05" height="0.12" color="#ef4444"></a-cylinder>
+          <a-cylinder position="0 0 3.25" radius="0.05" height="0.12" color="#a855f7"></a-cylinder>
+        </a-entity>
+        <a-entity position="1.10 0.86 0">
+          <a-box position="0 0 -4" width="0.14" height="0.24" depth="0.06" color="#0ea5e9"></a-box>
+          <a-box position="0 0 -2.5" width="0.14" height="0.22" depth="0.06" color="#84cc16"></a-box>
+          <a-box position="0 0 -1" width="0.14" height="0.24" depth="0.06" color="#f59e0b"></a-box>
+          <a-box position="0 0 1" width="0.14" height="0.22" depth="0.06" color="#ef4444"></a-box>
+          <a-box position="0 0 2.5" width="0.14" height="0.24" depth="0.06" color="#22c55e"></a-box>
+          <a-box position="0 0 4" width="0.14" height="0.22" depth="0.06" color="#3b82f6"></a-box>
+        </a-entity>
+        <a-entity position="1.10 0.86 0">
+          <a-box position="0 0 -3.25" width="0.14" height="0.22" depth="0.06" color="#f59e0b"></a-box>
+          <a-box position="0 0 -1.75" width="0.14" height="0.24" depth="0.06" color="#22c55e"></a-box>
+          <a-box position="0 0 -0.25" width="0.14" height="0.22" depth="0.06" color="#0ea5e9"></a-box>
+          <a-box position="0 0 1.75" width="0.14" height="0.24" depth="0.06" color="#a855f7"></a-box>
+          <a-box position="0 0 3.25" width="0.14" height="0.22" depth="0.06" color="#ef4444"></a-box>
+        </a-entity>
+        <a-entity position="1.10 1.31 0">
+          <a-entity position="0 0 -4">
+            <a-cylinder radius="0.04" height="0.26" color="#60a5fa"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 -2.5">
+            <a-cylinder radius="0.04" height="0.26" color="#10b981"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 -1">
+            <a-cylinder radius="0.04" height="0.26" color="#eab308"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 1">
+            <a-cylinder radius="0.04" height="0.26" color="#a855f7"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 2.5">
+            <a-cylinder radius="0.04" height="0.26" color="#f97316"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 4">
+            <a-cylinder radius="0.04" height="0.26" color="#22c55e"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+        </a-entity>
+        <a-entity position="1.10 1.31 0">
+          <a-entity position="0 0 -3.25">
+            <a-cylinder radius="0.04" height="0.26" color="#60a5fa"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 -1.75">
+            <a-cylinder radius="0.04" height="0.26" color="#10b981"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 -0.25">
+            <a-cylinder radius="0.04" height="0.26" color="#eab308"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 1.75">
+            <a-cylinder radius="0.04" height="0.26" color="#a855f7"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 3.25">
+            <a-cylinder radius="0.04" height="0.26" color="#f97316"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+        </a-entity>
+        <a-entity position="1.10 1.76 0">
+          <a-entity position="0 0 -4">
+            <a-box width="0.12" height="0.22" depth="0.08" color="#fde68a"></a-box>
+            <a-sphere position="0 0.11 0" radius="0.06" color="#fef3c7"></a-sphere>
+          </a-entity>
+          <a-entity position="0 0 -2.5">
+            <a-box width="0.12" height="0.22" depth="0.08" color="#bfdbfe"></a-box>
+            <a-sphere position="0 0.11 0" radius="0.06" color="#dbeafe"></a-sphere>
+          </a-entity>
+          <a-entity position="0 0 -1">
+            <a-box width="0.12" height="0.22" depth="0.08" color="#bbf7d0"></a-box>
+            <a-sphere position="0 0.11 0" radius="0.06" color="#dcfce7"></a-sphere>
+          </a-entity>
+          <a-entity position="0 0 1">
+            <a-box width="0.12" height="0.22" depth="0.08" color="#ffffff"></a-box>
+            <a-sphere position="0 0.11 0" radius="0.06" color="#f3f4f6"></a-sphere>
+          </a-entity>
+          <a-entity position="0 0 2.5">
+            <a-box width="0.12" height="0.22" depth="0.08" color="#fbcfe8"></a-box>
+            <a-sphere position="0 0.11 0" radius="0.06" color="#fce7f3"></a-sphere>
+          </a-entity>
+          <a-entity position="0 0 4">
+            <a-box width="0.12" height="0.22" depth="0.08" color="#ddd6fe"></a-box>
+            <a-sphere position="0 0.11 0" radius="0.06" color="#ede9fe"></a-sphere>
+          </a-entity>
+        </a-entity>
+        <a-entity position="1.10 1.76 0">
+          <a-entity position="0 0 -3.25">
+            <a-box width="0.12" height="0.22" depth="0.08" color="#fde68a"></a-box>
+            <a-sphere position="0 0.11 0" radius="0.06" color="#fef3c7"></a-sphere>
+          </a-entity>
+          <a-entity position="0 0 -1.75">
+            <a-box width="0.12" height="0.22" depth="0.08" color="#bfdbfe"></a-box>
+            <a-sphere position="0 0.11 0" radius="0.06" color="#dbeafe"></a-sphere>
+          </a-entity>
+          <a-entity position="0 0 -0.25">
+            <a-box width="0.12" height="0.22" depth="0.08" color="#bbf7d0"></a-box>
+            <a-sphere position="0 0.11 0" radius="0.06" color="#dcfce7"></a-sphere>
+          </a-entity>
+          <a-entity position="0 0 1.75">
+            <a-box width="0.12" height="0.22" depth="0.08" color="#ffffff"></a-box>
+            <a-sphere position="0 0.11 0" radius="0.06" color="#f3f4f6"></a-sphere>
+          </a-entity>
+          <a-entity position="0 0 3.25">
+            <a-box width="0.12" height="0.22" depth="0.08" color="#fbcfe8"></a-box>
+            <a-sphere position="0 0.11 0" radius="0.06" color="#fce7f3"></a-sphere>
+          </a-entity>
+        </a-entity>
+      </a-entity>
+
+      <!-- Gang 2: Getränke (mehr Flaschen/Dosen) -->
+      <a-entity position="3 0 0">
+        <!-- Links (GETRÄNKE) -->
+        <a-entity position="-1.10 0.42 0">
+          <a-entity position="0 0 -4">
+            <a-cylinder radius="0.04" height="0.26" color="#0ea5e9"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 -2.5">
+            <a-cylinder radius="0.04" height="0.26" color="#22c55e"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 -1">
+            <a-cylinder radius="0.04" height="0.26" color="#ef4444"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 1">
+            <a-cylinder radius="0.04" height="0.26" color="#eab308"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 2.5">
+            <a-cylinder radius="0.04" height="0.26" color="#a855f7"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 4">
+            <a-cylinder radius="0.04" height="0.26" color="#60a5fa"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+        </a-entity>
+        <a-entity position="-1.10 0.86 0">
+          <a-cylinder position="0 0 -4" radius="0.05" height="0.12" color="#94a3b8"></a-cylinder>
+          <a-cylinder position="0 0 -2.5" radius="0.05" height="0.12" color="#ef4444"></a-cylinder>
+          <a-cylinder position="0 0 -1" radius="0.05" height="0.12" color="#22c55e"></a-cylinder>
+          <a-cylinder position="0 0 1" radius="0.05" height="0.12" color="#60a5fa"></a-cylinder>
+          <a-cylinder position="0 0 2.5" radius="0.05" height="0.12" color="#a855f7"></a-cylinder>
+          <a-cylinder position="0 0 4" radius="0.05" height="0.12" color="#f59e0b"></a-cylinder>
+        </a-entity>
+        <a-entity position="-1.10 1.31 0">
+          <a-entity position="0 0 -4">
+            <a-cylinder radius="0.05" height="0.18" color="#fde68a"></a-cylinder>
+            <a-cylinder position="0 0.11 0" radius="0.052" height="0.03" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 -2.5">
+            <a-cylinder radius="0.05" height="0.18" color="#bfdbfe"></a-cylinder>
+            <a-cylinder position="0 0.11 0" radius="0.052" height="0.03" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 -1">
+            <a-cylinder radius="0.05" height="0.18" color="#bbf7d0"></a-cylinder>
+            <a-cylinder position="0 0.11 0" radius="0.052" height="0.03" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 1">
+            <a-cylinder radius="0.05" height="0.18" color="#fbcfe8"></a-cylinder>
+            <a-cylinder position="0 0.11 0" radius="0.052" height="0.03" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 2.5">
+            <a-cylinder radius="0.05" height="0.18" color="#ddd6fe"></a-cylinder>
+            <a-cylinder position="0 0.11 0" radius="0.052" height="0.03" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 4">
+            <a-cylinder radius="0.05" height="0.18" color="#ffffff"></a-cylinder>
+            <a-cylinder position="0 0.11 0" radius="0.052" height="0.03" color="#111827"></a-cylinder>
+          </a-entity>
+        </a-entity>
+        <a-entity position="-1.10 1.76 0">
+          <a-box position="0 0 -4" width="0.14" height="0.24" depth="0.06" color="#3b82f6"></a-box>
+          <a-box position="0 0 -2.5" width="0.14" height="0.22" depth="0.06" color="#22c55e"></a-box>
+          <a-box position="0 0 -1" width="0.14" height="0.24" depth="0.06" color="#ef4444"></a-box>
+          <a-box position="0 0 1" width="0.14" height="0.22" depth="0.06" color="#f59e0b"></a-box>
+          <a-box position="0 0 2.5" width="0.14" height="0.24" depth="0.06" color="#0ea5e9"></a-box>
+          <a-box position="0 0 4" width="0.14" height="0.22" depth="0.06" color="#a855f7"></a-box>
+        </a-entity>
+
+        <!-- Rechts (GETRÄNKE) -->
+        <a-entity position="1.10 0.42 0">
+          <a-entity position="0 0 -4">
+            <a-cylinder radius="0.04" height="0.26" color="#60a5fa"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 -2.5">
+            <a-cylinder radius="0.04" height="0.26" color="#10b981"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 -1">
+            <a-cylinder radius="0.04" height="0.26" color="#f97316"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 1">
+            <a-cylinder radius="0.04" height="0.26" color="#a855f7"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 2.5">
+            <a-cylinder radius="0.04" height="0.26" color="#eab308"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 4">
+            <a-cylinder radius="0.04" height="0.26" color="#ef4444"></a-cylinder>
+            <a-cylinder position="0 0.15 0" radius="0.028" height="0.04" color="#111827"></a-cylinder>
+          </a-entity>
+        </a-entity>
+        <a-entity position="1.10 0.86 0">
+          <a-cylinder position="0 0 -4" radius="0.05" height="0.12" color="#60a5fa"></a-cylinder>
+          <a-cylinder position="0 0 -2.5" radius="0.05" height="0.12" color="#22c55e"></a-cylinder>
+          <a-cylinder position="0 0 -1" radius="0.05" height="0.12" color="#ef4444"></a-cylinder>
+          <a-cylinder position="0 0 1" radius="0.05" height="0.12" color="#eab308"></a-cylinder>
+          <a-cylinder position="0 0 2.5" radius="0.05" height="0.12" color="#a855f7"></a-cylinder>
+          <a-cylinder position="0 0 4" radius="0.05" height="0.12" color="#94a3b8"></a-cylinder>
+        </a-entity>
+        <a-entity position="1.10 1.31 0">
+          <a-box position="0 0 -4" width="0.14" height="0.24" depth="0.06" color="#0ea5e9"></a-box>
+          <a-box position="0 0 -2.5" width="0.14" height="0.22" depth="0.06" color="#84cc16"></a-box>
+          <a-box position="0 0 -1" width="0.14" height="0.24" depth="0.06" color="#f59e0b"></a-box>
+          <a-box position="0 0 1" width="0.14" height="0.22" depth="0.06" color="#ef4444"></a-box>
+          <a-box position="0 0 2.5" width="0.14" height="0.24" depth="0.06" color="#22c55e"></a-box>
+          <a-box position="0 0 4" width="0.14" height="0.22" depth="0.06" color="#3b82f6"></a-box>
+        </a-entity>
+        <a-entity position="1.10 1.76 0">
+          <a-entity position="0 0 -4">
+            <a-cylinder radius="0.05" height="0.18" color="#ffffff"></a-cylinder>
+            <a-cylinder position="0 0.11 0" radius="0.052" height="0.03" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 -2.5">
+            <a-cylinder radius="0.05" height="0.18" color="#bfdbfe"></a-cylinder>
+            <a-cylinder position="0 0.11 0" radius="0.052" height="0.03" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 -1">
+            <a-cylinder radius="0.05" height="0.18" color="#bbf7d0"></a-cylinder>
+            <a-cylinder position="0 0.11 0" radius="0.052" height="0.03" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 1">
+            <a-cylinder radius="0.05" height="0.18" color="#fde68a"></a-cylinder>
+            <a-cylinder position="0 0.11 0" radius="0.052" height="0.03" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 2.5">
+            <a-cylinder radius="0.05" height="0.18" color="#fbcfe8"></a-cylinder>
+            <a-cylinder position="0 0.11 0" radius="0.052" height="0.03" color="#111827"></a-cylinder>
+          </a-entity>
+          <a-entity position="0 0 4">
+            <a-cylinder radius="0.05" height="0.18" color="#ddd6fe"></a-cylinder>
+            <a-cylinder position="0 0.11 0" radius="0.052" height="0.03" color="#111827"></a-cylinder>
+          </a-entity>
+        </a-entity>
+      </a-entity>
+
+      <!-- Gang 3: Obst (Kisten/Früchte) -->
+      <a-entity position="0 0 -4">
+        <!-- Links (OBST) -->
+        <a-entity position="-1.10 0.42 0">
+          <a-box position="0 0 -2.4" width="0.18" height="0.16" depth="0.18" color="#8b5a2b"></a-box>
+          <a-sphere position="0 0.12 -2.4" radius="0.06" color="#ef4444"></a-sphere>
+
+          <a-box position="0 0 -1.2" width="0.18" height="0.16" depth="0.18" color="#8b5a2b"></a-box>
+          <a-sphere position="0 0.12 -1.2" radius="0.06" color="#f59e0b"></a-sphere>
+
+          <a-box position="0 0 0" width="0.18" height="0.16" depth="0.18" color="#8b5a2b"></a-box>
+          <a-sphere position="0 0.12 0" radius="0.06" color="#22c55e"></a-sphere>
+
+          <a-box position="0 0 1.2" width="0.18" height="0.16" depth="0.18" color="#8b5a2b"></a-box>
+          <a-sphere position="0 0.12 1.2" radius="0.06" color="#eab308"></a-sphere>
+
+          <a-box position="0 0 2.4" width="0.18" height="0.16" depth="0.18" color="#8b5a2b"></a-box>
+          <a-sphere position="0 0.12 2.4" radius="0.06" color="#84cc16"></a-sphere>
+        </a-entity>
+
+        <a-entity position="-1.10 0.86 0">
+          <a-sphere position="0 0 -2.4" radius="0.07" color="#ef4444"></a-sphere>
+          <a-sphere position="0 0 -1.2" radius="0.07" color="#f59e0b"></a-sphere>
+          <a-sphere position="0 0 0" radius="0.07" color="#22c55e"></a-sphere>
+          <a-sphere position="0 0 1.2" radius="0.07" color="#eab308"></a-sphere>
+          <a-sphere position="0 0 2.4" radius="0.07" color="#84cc16"></a-sphere>
+        </a-entity>
+
+        <a-entity position="-1.10 1.31 0">
+          <a-box position="0 0 -2.4" width="0.14" height="0.22" depth="0.08" color="#fde68a"></a-box>
+          <a-box position="0 0 -1.2" width="0.14" height="0.22" depth="0.08" color="#bbf7d0"></a-box>
+          <a-box position="0 0 0" width="0.14" height="0.22" depth="0.08" color="#bfdbfe"></a-box>
+          <a-box position="0 0 1.2" width="0.14" height="0.22" depth="0.08" color="#fbcfe8"></a-box>
+          <a-box position="0 0 2.4" width="0.14" height="0.22" depth="0.08" color="#ddd6fe"></a-box>
+        </a-entity>
+
+        <a-entity position="-1.10 1.76 0">
+          <a-box position="0 0 -2.4" width="0.14" height="0.22" depth="0.08" color="#ffffff"></a-box>
+          <a-box position="0 0 -1.2" width="0.14" height="0.22" depth="0.08" color="#fde68a"></a-box>
+          <a-box position="0 0 0" width="0.14" height="0.22" depth="0.08" color="#bbf7d0"></a-box>
+          <a-box position="0 0 1.2" width="0.14" height="0.22" depth="0.08" color="#bfdbfe"></a-box>
+          <a-box position="0 0 2.4" width="0.14" height="0.22" depth="0.08" color="#fbcfe8"></a-box>
+        </a-entity>
+
+        <!-- Rechts (OBST) -->
+        <a-entity position="1.10 0.42 0">
+          <a-box position="0 0 -2.4" width="0.18" height="0.16" depth="0.18" color="#8b5a2b"></a-box>
+          <a-sphere position="0 0.12 -2.4" radius="0.06" color="#ef4444"></a-sphere>
+
+          <a-box position="0 0 -1.2" width="0.18" height="0.16" depth="0.18" color="#8b5a2b"></a-box>
+          <a-sphere position="0 0.12 -1.2" radius="0.06" color="#f59e0b"></a-sphere>
+
+          <a-box position="0 0 0" width="0.18" height="0.16" depth="0.18" color="#8b5a2b"></a-box>
+          <a-sphere position="0 0.12 0" radius="0.06" color="#22c55e"></a-sphere>
+
+          <a-box position="0 0 1.2" width="0.18" height="0.16" depth="0.18" color="#8b5a2b"></a-box>
+          <a-sphere position="0 0.12 1.2" radius="0.06" color="#eab308"></a-sphere>
+
+          <a-box position="0 0 2.4" width="0.18" height="0.16" depth="0.18" color="#8b5a2b"></a-box>
+          <a-sphere position="0 0.12 2.4" radius="0.06" color="#84cc16"></a-sphere>
+        </a-entity>
+
+        <a-entity position="1.10 0.86 0">
+          <a-sphere position="0 0 -2.4" radius="0.07" color="#ef4444"></a-sphere>
+          <a-sphere position="0 0 -1.2" radius="0.07" color="#f59e0b"></a-sphere>
+          <a-sphere position="0 0 0" radius="0.07" color="#22c55e"></a-sphere>
+          <a-sphere position="0 0 1.2" radius="0.07" color="#eab308"></a-sphere>
+          <a-sphere position="0 0 2.4" radius="0.07" color="#84cc16"></a-sphere>
+        </a-entity>
+
+        <a-entity position="1.10 1.31 0">
+          <a-box position="0 0 -2.4" width="0.14" height="0.22" depth="0.08" color="#bfdbfe"></a-box>
+          <a-box position="0 0 -1.2" width="0.14" height="0.22" depth="0.08" color="#bbf7d0"></a-box>
+          <a-box position="0 0 0" width="0.14" height="0.22" depth="0.08" color="#fde68a"></a-box>
+          <a-box position="0 0 1.2" width="0.14" height="0.22" depth="0.08" color="#fbcfe8"></a-box>
+          <a-box position="0 0 2.4" width="0.14" height="0.22" depth="0.08" color="#ddd6fe"></a-box>
+        </a-entity>
+
+        <a-entity position="1.10 1.76 0">
+          <a-box position="0 0 -2.4" width="0.14" height="0.22" depth="0.08" color="#fde68a"></a-box>
+          <a-box position="0 0 -1.2" width="0.14" height="0.22" depth="0.08" color="#ffffff"></a-box>
+          <a-box position="0 0 0" width="0.14" height="0.22" depth="0.08" color="#bfdbfe"></a-box>
+          <a-box position="0 0 1.2" width="0.14" height="0.22" depth="0.08" color="#bbf7d0"></a-box>
+          <a-box position="0 0 2.4" width="0.14" height="0.22" depth="0.08" color="#fbcfe8"></a-box>
+        </a-entity>
+    </a-entity>
+
+    <!-- Kleine Realismus-Details (VR-freundlich: wenige Primitives) -->
+    <a-entity id="realism-props">
+      <!-- Endcap / Angebotsinsel -->
+      <a-entity id="endcap-display" position="0 0 2.2" shadow="cast:true; receive:true">
+        <a-box position="0 0.08 0" width="1.6" height="0.16" depth="1.0" material="color:#cbd5e1; metalness:0.12; roughness:0.78"></a-box>
+        <a-box position="0 0.70 0" width="1.5" height="1.25" depth="0.9" material="color:#e5e7eb; metalness:0.10; roughness:0.75"></a-box>
+        <a-plane position="0 1.35 0.46" width="1.4" height="0.35" material="color:#111827; shader:flat"></a-plane>
+        <a-troika-text value="ANGEBOTE" position="0 1.35 0.47" align="center" color="#ffffff" font-size="0.20" max-width="1.4"></a-troika-text>
+      </a-entity>
+
+      <!-- Hängeschilder über den Gängen -->
+      <a-entity id="aisle-signs">
+        <a-entity position="-3 3.6 4.9" rotation="0 180 0">
+          <a-plane width="1.6" height="0.45" material="color:#f8fafc; metalness:0.0; roughness:0.9"></a-plane>
+          <a-troika-text value="SNACKS" position="0 0 0.02" align="center" color="#111827" font-size="0.22" max-width="1.5"></a-troika-text>
+        </a-entity>
+        <a-entity position="3 3.6 4.9" rotation="0 180 0">
+          <a-plane width="1.6" height="0.45" material="color:#f8fafc; metalness:0.0; roughness:0.9"></a-plane>
+          <a-troika-text value="GETRÄNKE" position="0 0 0.02" align="center" color="#111827" font-size="0.22" max-width="1.5"></a-troika-text>
+        </a-entity>
+        <a-entity position="0 3.6 -1.2" rotation="0 180 0">
+          <a-plane width="1.9" height="0.45" material="color:#f8fafc; metalness:0.0; roughness:0.9"></a-plane>
+          <a-troika-text value="OBST" position="0 0 0.02" align="center" color="#111827" font-size="0.22" max-width="1.8"></a-troika-text>
+        </a-entity>
+      </a-entity>
+
+      <!-- Kühlregal an der Rückwand -->
+      <a-entity id="fridge-row" position="8 0 -7.2" shadow="cast:true; receive:true">
+        <a-entity position="0 0 0">
+          <a-box position="0 1.2 0" width="1.8" height="2.4" depth="0.75" material="color:#9ca3af; metalness:0.18; roughness:0.55"></a-box>
+          <a-plane position="0 1.2 0.38" width="1.65" height="2.15" material="color:#a7f3d0; transparent:true; opacity:0.18; metalness:0.0; roughness:0.08"></a-plane>
+          <a-plane position="0 2.45 0.38" width="1.65" height="0.25" material="color:#111827; emissive:#111827; emissiveIntensity:0.15"></a-plane>
+          <a-troika-text value="KÜHLUNG" position="0 2.45 0.39" align="center" color="#ffffff" font-size="0.18" max-width="1.6"></a-troika-text>
+        </a-entity>
+        <a-entity position="2.0 0 0">
+          <a-box position="0 1.2 0" width="1.8" height="2.4" depth="0.75" material="color:#9ca3af; metalness:0.18; roughness:0.55"></a-box>
+          <a-plane position="0 1.2 0.38" width="1.65" height="2.15" material="color:#a7f3d0; transparent:true; opacity:0.18; metalness:0.0; roughness:0.08"></a-plane>
+        </a-entity>
+      </a-entity>
+    </a-entity>
+
+    <!-- Kasse -->
+    <a-entity id="checkout" position="7 0 5.5">
+      <a-box position="0 0.6 0" width="3" height="1.2" depth="1" material="color:#c7c7c7; metalness:0.2; roughness:0.7"></a-box>
+      <a-box position="-0.9 1.25 0" width="0.6" height="0.3" depth="0.4" material="color:#111; metalness:0.3; roughness:0.6"></a-box>
+      <a-plane position="-0.9 1.25 0.21" width="0.5" height="0.25" color="#22c55e"></a-plane>
+      <a-box position="0.8 1.2 0" width="0.8" height="0.2" depth="0.8" material="color:#9ca3af; metalness:0.15; roughness:0.75"></a-box>
+      <!-- Kassierer -->
+      <a-entity position="-1.2 1.75 0" rotation="0 90 0">
+        <a-box position="0 0 0" width="0.35" height="0.7" depth="0.25" color="#111827"></a-box>
+        <a-sphere position="0 0.55 0" radius="0.16" color="#f1c27d"></a-sphere>
+      </a-entity>
+      <!-- Scanner -->
+      <a-box position="0.2 1.25 0.15" width="0.25" height="0.12" depth="0.18" material="color:#333; metalness:0.3; roughness:0.6"></a-box>
+      <a-plane position="0.2 1.32 0.15" width="0.2" height="0.14" material="color:#ef4444; emissive:#ef4444; emissiveIntensity:0.3"></a-plane>
+    </a-entity>
+
+    <!-- Zusätzliche Kasse -->
+    <a-entity id="checkout2" position="7 0 2.5">
+      <a-box position="0 0.6 0" width="3" height="1.2" depth="1" material="color:#c7c7c7; metalness:0.2; roughness:0.7"></a-box>
+      <a-box position="-0.9 1.25 0" width="0.6" height="0.3" depth="0.4" material="color:#111; metalness:0.3; roughness:0.6"></a-box>
+      <a-plane position="-0.9 1.25 0.21" width="0.5" height="0.25" color="#ef4444"></a-plane>
+      <a-text value="GESCHLOSSEN" position="-0.9 1.25 0.22" width="2" align="center" color="#ffffff"></a-text>
+      <a-box position="0.8 1.2 0" width="0.8" height="0.2" depth="0.8" material="color:#9ca3af; metalness:0.15; roughness:0.75"></a-box>
+    </a-entity>
+
+    <!-- Leute -->
+    <a-entity id="people">
+      <!-- stehende Kund:innen -->
+      <a-entity position="-1 0 1.8" rotation="0 20 0">
+        <a-box position="0 0.55 0" width="0.35" height="0.7" depth="0.25" color="#3b82f6"></a-box>
+        <a-sphere position="0 1.15 0" radius="0.16" color="#f1c27d"></a-sphere>
+        <!-- Einkaufskorb in der Hand -->
+        <a-box position="0.25 0.35 0.15" width="0.18" height="0.12" depth="0.18" color="#888"></a-box>
+      </a-entity>
+      <a-entity position="1.2 0 -0.6" rotation="0 -30 0">
+        <a-box position="0 0.55 0" width="0.35" height="0.7" depth="0.25" color="#22c55e"></a-box>
+        <a-sphere position="0 1.15 0" radius="0.16" color="#f1c27d"></a-sphere>
+      </a-entity>
+      <a-entity position="4 0 -3" rotation="0 90 0">
+        <a-box position="0 0.55 0" width="0.35" height="0.7" depth="0.25" color="#fbbf24"></a-box>
+        <a-sphere position="0 1.15 0" radius="0.16" color="#f1c27d"></a-sphere>
+      </a-entity>
+
+      <!-- an der Kasse -->
+      <a-entity position="6.2 0 5.2" rotation="0 -80 0">
+        <a-box position="0 0.55 0" width="0.35" height="0.7" depth="0.25" color="#ef4444"></a-box>
+        <a-sphere position="0 1.15 0" radius="0.16" color="#f1c27d"></a-sphere>
+        <!-- Einkaufswagen -->
+        <a-entity position="-0.6 0.3 0">
+          <a-box width="0.4" height="0.5" depth="0.5" material="color:#888; metalness:0.3; roughness:0.6"></a-box>
+          <a-cylinder position="-0.15 -0.35 0.2" radius="0.05" height="0.08" color="#333"></a-cylinder>
+          <a-cylinder position="0.15 -0.35 0.2" radius="0.05" height="0.08" color="#333"></a-cylinder>
+          <a-cylinder position="-0.15 -0.35 -0.2" radius="0.05" height="0.08" color="#333"></a-cylinder>
+          <a-cylinder position="0.15 -0.35 -0.2" radius="0.05" height="0.08" color="#333"></a-cylinder>
+        </a-entity>
+      </a-entity>
+
+      <!-- Laufwege -->
+      <a-entity position="0 0 6" rotation="0 180 0">
+        <a-box position="0 0.55 0" width="0.35" height="0.7" depth="0.25" color="#a855f7"></a-box>
+        <a-sphere position="0 1.15 0" radius="0.16" color="#f1c27d"></a-sphere>
+        <a-animation attribute="position" from="0 0 6" to="-1.5 0 2.5" dur="8000" direction="alternate" repeat="indefinite" easing="easeInOutSine"></a-animation>
+      </a-entity>
+      <a-entity position="-6 0 -2" rotation="0 60 0">
+        <a-box position="0 0.55 0" width="0.35" height="0.7" depth="0.25" color="#f59e0b"></a-box>
+        <a-sphere position="0 1.15 0" radius="0.16" color="#f1c27d"></a-sphere>
+        <a-animation attribute="position" from="-6 0 -2" to="-4 0 1" dur="9000" direction="alternate" repeat="indefinite" easing="easeInOutSine"></a-animation>
+      </a-entity>
+      <a-entity position="3 0 -5" rotation="0 0 0">
+        <a-box position="0 0.55 0" width="0.35" height="0.7" depth="0.25" color="#ec4899"></a-box>
+        <a-sphere position="0 1.15 0" radius="0.16" color="#f1c27d"></a-sphere>
+        <a-animation attribute="position" from="3 0 -5" to="3 0 0" dur="7000" direction="alternate" repeat="indefinite" easing="easeInOutSine"></a-animation>
+      </a-entity>
+
+      <!-- Extra Crowd nah an der POV (im selben Gang wie das Rig) -->
+      <a-entity id="crowd-near-pov" shadow="cast:false; receive:false">
+        <!-- 3 Walker direkt in Blickrichtung am Start (Rig schaut Richtung -X) -->
+        <a-entity position="-8.8 0 -0.9" rotation="0 90 0">
+          <a-box position="0 0.55 0" width="0.35" height="0.7" depth="0.25" color="#22c55e"></a-box>
+          <a-sphere position="0 1.15 0" radius="0.16" color="#f1c27d"></a-sphere>
+          <a-animation attribute="position" from="-9.6 0 -0.9" to="-5.85 0 -0.9" dur="7200" direction="alternate" repeat="indefinite" easing="easeInOutSine"></a-animation>
+        </a-entity>
+        <a-entity position="-8.2 0 -1.9" rotation="0 90 0">
+          <a-box position="0 0.55 0" width="0.35" height="0.7" depth="0.25" color="#3b82f6"></a-box>
+          <a-sphere position="0 1.15 0" radius="0.16" color="#f1c27d"></a-sphere>
+          <a-animation attribute="position" from="-9.2 0 -1.9" to="-6.05 0 -1.9" dur="8600" direction="alternate" repeat="indefinite" easing="easeInOutSine"></a-animation>
+        </a-entity>
+        <a-entity position="-9.0 0 -2.9" rotation="0 90 0">
+          <a-box position="0 0.55 0" width="0.35" height="0.7" depth="0.25" color="#f59e0b"></a-box>
+          <a-sphere position="0 1.15 0" radius="0.16" color="#f1c27d"></a-sphere>
+          <a-animation attribute="position" from="-10.0 0 -2.9" to="-6.2 0 -2.9" dur="9400" direction="alternate" repeat="indefinite" easing="easeInOutSine"></a-animation>
+        </a-entity>
+      </a-entity>
+    </a-entity>
+
+    <!-- Voller Einkaufswagen im Gang (stationär, nicht an der POV) -->
+    <a-entity id="aisle-cart" position="-6.15 0 -1.10" rotation="0 90 0">
+      <!-- Korb / Rahmen -->
+      <a-box position="0 0.33 0" width="0.44" height="0.34" depth="0.58" material="color:#9ca3af; metalness:0.25; roughness:0.65"></a-box>
+      <!-- Innenraum (optisch) -->
+      <a-box position="0 0.35 0" width="0.40" height="0.28" depth="0.52" material="color:#111827; opacity:0.22; transparent:true; shader:flat"></a-box>
+
+      <!-- Korb-Wände (dünn) -->
+      <a-box position="0 0.47 0.29" width="0.44" height="0.24" depth="0.02" material="color:#b0b7c3; metalness:0.25; roughness:0.6"></a-box>
+      <a-box position="0 0.47 -0.29" width="0.44" height="0.24" depth="0.02" material="color:#b0b7c3; metalness:0.25; roughness:0.6"></a-box>
+      <a-box position="0.22 0.47 0" width="0.02" height="0.24" depth="0.58" material="color:#b0b7c3; metalness:0.25; roughness:0.6"></a-box>
+      <a-box position="-0.22 0.47 0" width="0.02" height="0.24" depth="0.58" material="color:#b0b7c3; metalness:0.25; roughness:0.6"></a-box>
+
+      <!-- Griff -->
+      <a-cylinder position="0 0.67 0.30" radius="0.012" height="0.50" rotation="0 0 90" material="color:#1f2937; metalness:0.15; roughness:0.55"></a-cylinder>
+      <a-box position="0 0.67 0.33" width="0.34" height="0.04" depth="0.06" material="color:#374151; roughness:0.8"></a-box>
+
+      <!-- Räder -->
+      <a-cylinder position="-0.17 0.05 0.22" radius="0.05" height="0.03" rotation="90 0 0" color="#111"></a-cylinder>
+      <a-cylinder position="0.17 0.05 0.22" radius="0.05" height="0.03" rotation="90 0 0" color="#111"></a-cylinder>
+      <a-cylinder position="-0.17 0.05 -0.22" radius="0.05" height="0.03" rotation="90 0 0" color="#111"></a-cylinder>
+      <a-cylinder position="0.17 0.05 -0.22" radius="0.05" height="0.03" rotation="90 0 0" color="#111"></a-cylinder>
+
+      <!-- "Voller" Inhalt -->
+      <a-box position="-0.09 0.52 0.05" width="0.12" height="0.18" depth="0.10" material="color:#ef4444; roughness:0.9"></a-box>
+      <a-box position="0.10 0.50 -0.04" width="0.14" height="0.12" depth="0.12" material="color:#22c55e; roughness:0.9"></a-box>
+      <a-cylinder position="0.02 0.56 0.16" radius="0.045" height="0.16" material="color:#f59e0b; roughness:0.85"></a-cylinder>
+      <a-cylinder position="-0.12 0.56 -0.14" radius="0.042" height="0.18" material="color:#3b82f6; roughness:0.85"></a-cylinder>
+      <a-box position="0.14 0.60 0.10" width="0.10" height="0.10" depth="0.18" material="color:#a855f7; roughness:0.9"></a-box>
+      <a-sphere position="-0.02 0.60 -0.02" radius="0.06" material="color:#fde68a; roughness:0.95"></a-sphere>
+    </a-entity>
+
+    <!-- POV: Start im Regalgang vor Produkten -->
+    <a-entity id="rig" position="-3 0 -1.1" rotation="0 -90 0">
+      <!-- Kamera: Augenhöhe 1.6m, Umschauen per Maus (PointerLock). WASD aus. -->
+      <a-camera position="0 1.6 0" look-controls="pointerLockEnabled: true" wasd-controls="enabled: false"></a-camera>
+    </a-entity>
+
+  </a-scene>
+  </main>
+
+  <footer class="app-footer">DeSync – Maximilian Wittwer – Matrikelnummer: 287664</footer>
+</body>
+</html>
+

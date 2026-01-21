@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="de">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>ADHS VR Simulation</title>
+	<link rel="stylesheet" href="base.css">
+	<link rel="stylesheet" href="landing.css">
+</head>
+<body>
+	<!-- Landingpage: Projekt-Intro + Szenario-Auswahl + Info-Modal -->
+	<div class="landing-container">
+		<h1>DeSync – ADHS in VR</h1>
+		<p class="landing-subtitle">
+			Erlebe, wie sich ADHS anfühlt – mit allen Ablenkungen, die gleichzeitig bombardieren.
+		</p>
+
+		<h2 class="info-title">So funktioniert's</h2>
+		<div class="info-section">
+			<div class="info-card">
+				<span class="info-icon">🧠</span>
+				<h3>Was ist das?</h3>
+				<p>VR-Simulation von ADHS in verschiedenen Alltagsumgebungen – visuelle und auditive Ablenkungen.</p>
+			</div>
+
+			<div class="info-card">
+				<span class="info-icon">🎮</span>
+				<h3>Steuerung</h3>
+				<p><strong>Meta Quest (VR):</strong><br>
+				Mit dem Controller‑Laser auf das UI zeigen und mit <kbd>Trigger</kbd> klicken.<br>
+				<kbd>A</kbd> = Start/Stop | <kbd>B</kbd> = Nachgeben | <kbd>Trigger</kbd> = Refocus<br>
+				<kbd>X</kbd> = Level ↑ | <kbd>Y</kbd> = Level ↓ | <kbd>Thumbstick</kbd> ↑/↓/←/→ = Level ±</p>
+			</div>
+
+			<div class="info-card">
+				<span class="info-icon">✓</span>
+				<h3>Tasks erledigen</h3>
+				<p>Tasks werden durch konzentrierte Arbeit erledigt – je höher die Ablenkung, desto länger dauert es. Hyperfokus beschleunigt den Fortschritt.</p>
+			</div>
+
+			<div class="info-card">
+				<span class="info-icon">🥽</span>
+				<h3>Nutzen</h3>
+				<p>Wähle eine Umgebung, starte die Simulation und erkunde sie in VR.</p>
+			</div>
+		</div>
+
+		<h2 class="info-title">Warum ADHS mehr ist als „schlecht konzentrieren“</h2>
+		<div class="edu-section">
+			<div class="edu-grid">
+				<div class="edu-card">
+					<h3>Starten & Planen</h3>
+					<p>Oft ist nicht das Wissen das Problem, sondern das Anfangen. Aufgaben wirken „zu groß“ und das Gehirn findet keinen Einstieg.</p>
+				</div>
+				<div class="edu-card">
+					<h3>Reizfilter & Overload</h3>
+					<p>Geräusche, Bewegungen, Gedanken und Benachrichtigungen konkurrieren gleichzeitig – das kostet Energie und erhöht Stress.</p>
+				</div>
+				<div class="edu-card">
+					<h3>Wiedereinstieg kostet</h3>
+					<p>Nach jeder Unterbrechung ist man nicht einfach wieder „drin“. Kontext geht verloren, es braucht Zeit, um zurück in die Aufgabe zu kommen.</p>
+				</div>
+				<div class="edu-card">
+					<h3>Zeitblindheit</h3>
+					<p>„Nur kurz…“ wird schnell zu viel Zeit. Das Zeitempfinden kann stark schwanken – mit Folgen für Alltag und Leistungsdruck.</p>
+				</div>
+				<div class="edu-card">
+					<h3>Hyperfokus</h3>
+					<p>Manchmal klappt Fokus extrem gut – aber oft auf das Falsche. Umschalten ist schwer, selbst wenn man es merkt.</p>
+				</div>
+				<div class="edu-card">
+					<h3>Emotionale Belastung</h3>
+					<p>Stress, Frust und Scham sind häufig Begleiter – nicht, weil man „nicht will“, sondern weil Selbststeuerung dauernd Energie kostet.</p>
+				</div>
+			</div>
+			<div class="edu-actions">
+				<button class="edu-btn" id="edu-open" type="button">Mehr zur Simulation</button>
+				<p class="edu-note">Hinweis: Das ist eine vereinfachte Erlebnissimulation – ADHS ist individuell und kann sehr unterschiedlich aussehen.</p>
+			</div>
+		</div>
+
+		<h2 class="scenarios-title">Umgebung wählen</h2>
+		<div class="scenarios">
+			<!-- data-href wird in app.js als Navigation genutzt (ohne inline onclick) -->
+			<button class="scenario-btn" data-href="hoersaal.html" aria-label="Hörsaal" type="button">
+				<span class="scenario-icon" aria-hidden="true">🎓</span>
+				Hörsaal
+				<span class="scenario-desc">Vorlesung</span>
+			</button>
+			<button class="scenario-btn" data-href="desk.html" aria-label="Schreibtisch" type="button">
+				<span class="scenario-icon" aria-hidden="true">💻</span>
+				Schreibtisch
+				<span class="scenario-desc">Gaming</span>
+			</button>
+			<button class="scenario-btn" data-href="supermarkt.html" aria-label="Supermarkt" type="button">
+				<span class="scenario-icon" aria-hidden="true">🛒</span>
+				Supermarkt
+				<span class="scenario-desc">Einkaufen</span>
+			</button>
+		</div>
+
+		<footer class="landing-footer">
+			DeSync – Maximilian Wittwer – Matrikelnummer: 287664
+		</footer>
+	</div>
+
+	<!-- Modal: app.js toggelt aria-hidden + Klassen (öffnen/schließen) -->
+	<div class="modal" id="edu-modal" aria-hidden="true">
+		<div class="modal-backdrop" data-close="true"></div>
+		<div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="edu-title">
+			<div class="modal-header">
+				<h2 id="edu-title">Was diese Simulation zeigen soll</h2>
+				<button class="modal-close" type="button" id="edu-close" aria-label="Schließen">×</button>
+			</div>
+			<div class="modal-body">
+				<ul>				<li><strong>Aufgabenfortschritt:</strong> Tasks werden während fokussierter Arbeit erledigt – Ablenkungen verlangsamen den Fortschritt, Hyperfokus beschleunigt ihn.</li>					<li><strong>Reizüberflutung:</strong> Viele gleichzeitige Reize fühlen sich nicht nur „nervig“ an, sondern machen Aufgabensteuerung schwer.</li>
+					<li><strong>Kontextverlust:</strong> Unterbrechungen sind teuer – Zurückfinden ist Arbeit.</li>
+					<li><strong>Stress-Spirale:</strong> Je mehr Unterbrechungen/Overload, desto höher der Stress – und desto schwerer wird Selbststeuerung.</li>
+					<li><strong>Keine Ausrede:</strong> Die Simulation soll Empathie fördern – nicht bewerten.</li>
+				</ul>
+				<p class="modal-footnote">Wenn dich das Thema betrifft oder du Hilfe suchst: Sprich mit Ärzt*innen/Therapeut*innen oder Beratungsstellen. Diese Simulation ersetzt keine Diagnose.</p>
+			</div>
+		</div>
+	</div>
+
+	<!-- Scripts: Landing nutzt nur das UI aus app.js; die eigentliche Simulation läuft in den Scene-Pages. -->
+	<script src="https://aframe.io/releases/1.6.0/aframe.min.js" defer></script>
+	<script src="https://aframe.io/releases/1.6.0/aframe-inspector.min.js" defer></script>
+	<script src="vr.js" defer></script> <!-- Start-VR Helper (wird primär in den Scene-Pages genutzt) -->
+	<!-- Unified App Entry: Landing-UI + (optional) Simulation-Setup -->
+	<script type="module" src="app.js"></script>
+</body>
+</html>

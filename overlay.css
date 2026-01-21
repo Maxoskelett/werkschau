@@ -1,0 +1,616 @@
+/*
+	VR-/Scene-Overlay + HUD
+	
+	Diese Datei steuert nur das DOM-Overlay (Buttons/HUD/Intro) – der A-Frame Canvas liegt darunter.
+
+	Z-Index grobe Orientierung (damit Präsentation/Debugging leichter ist):
+	- 1000: Overlay-Root / Panels
+	- 1001: Top-Buttons (#back-home/#start-vr)
+	- 9999: Intro-Card (kurz vor Start)
+	- 10050: Session-Summary (Stop-Overlay, muss alles überdecken)
+*/
+
+/* ===== Szene-Intro (kurze Aufklärung vor Start) ===== */
+.adhs-intro {
+	position: absolute;
+	left: 50%;
+	top: 18px;
+	transform: translateX(-50%);
+	width: min(560px, calc(100vw - 24px));
+	background: rgba(15, 23, 42, 0.84);
+	color: #e2e8f0;
+	border: 1px solid rgba(148, 163, 184, 0.25);
+	border-radius: 14px;
+	padding: 14px 14px 12px;
+	box-shadow: 0 14px 40px rgba(0,0,0,0.35);
+	backdrop-filter: blur(8px);
+	-webkit-backdrop-filter: blur(8px);
+	z-index: 9999;
+}
+
+.adhs-intro.is-hiding {
+	/* "Ausblenden" als kurze, ruhige Micro-Animation */
+	opacity: 0;
+	transform: translateX(-50%) translateY(-6px);
+	transition: opacity 200ms ease, transform 200ms ease;
+}
+
+.adhs-intro__title {
+	font-weight: 700;
+	letter-spacing: 0.2px;
+	font-size: 1.0rem;
+	margin-bottom: 8px;
+}
+
+.adhs-intro__text {
+	font-size: 0.95rem;
+	line-height: 1.35;
+	color: #e2e8f0;
+}
+
+.adhs-intro__text ul {
+	margin: 8px 0 0;
+	padding-left: 1.15rem;
+	color: #e2e8f0;
+}
+
+.adhs-intro__note {
+	margin-top: 10px;
+	font-size: 0.85rem;
+	color: rgba(226, 232, 240, 0.85);
+}
+
+.adhs-intro__actions {
+	display: flex;
+	justify-content: flex-end;
+	margin-top: 10px;
+}
+
+.adhs-intro__btn {
+	appearance: none;
+	border: 1px solid rgba(148, 163, 184, 0.35);
+	background: rgba(226, 232, 240, 0.10);
+	color: #e2e8f0;
+	padding: 8px 12px;
+	border-radius: 10px;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.adhs-intro__btn:hover {
+	background: rgba(226, 232, 240, 0.16);
+}
+
+.adhs-intro__btn:active {
+	transform: translateY(1px);
+}
+
+/* ===== Overlay-Layer (Click-through) =====
+	Der Overlay-Root ist full-screen und NICHT klickbar.
+	Nur direkte Kinder (Buttons/Panels) fangen Pointer-Events ab.
+	So bleiben Canvas-Controls / Raycaster weiterhin bedienbar.
+*/
+#ui-overlay {
+	position: fixed; /* DOM-Overlay liegt über dem Canvas */
+	inset: 0; /* full screen */
+	z-index: 1000; /* über A-Frame, aber unter Buttons/Intro */
+	pointer-events: none; /* Overlay-Root fängt keine Klicks ab */
+}
+
+#ui-overlay > * {
+	pointer-events: auto; /* nur echte Controls sind klickbar */
+}
+
+/* ===== Primäre Top-Buttons (Home/VR) ===== */
+
+#back-home, #start-vr {
+	position: fixed;
+	top: 20px;
+	z-index: 1001;
+	background: rgba(245, 247, 250, 0.7);
+	backdrop-filter: blur(20px);
+	border: 1px solid rgba(255, 255, 255, 0.4);
+	border-radius: 50px;
+	padding: 0.7rem 1.5rem;
+	font-size: 0.95rem;
+	font-weight: 600;
+	color: var(--text-primary);
+	cursor: pointer;
+	transition: all 0.2s;
+}
+
+/* In VR: Start-VR Button ausblenden (Game UI wirkt cleaner) */
+.in-vr #start-vr { display: none !important; }
+
+/* In VR (View-only): Desktop-Control-Panel ausblenden */
+.in-vr #adhs-controls { display: none !important; }
+
+/* In VR: Mauszeiger ausblenden (PointerLock / Mouselook)
+	Wichtig: Das ist rein kosmetisch – PointerLock selbst passiert in JS.
+*/
+html.in-vr,
+html.in-vr body,
+html.in-vr a-scene,
+html.in-vr canvas {
+	cursor: none !important; /* Desktop-VR: Mauszeiger weg (PointerLock/Mouselook) */
+}
+
+#back-home { left: 20px; }
+#start-vr { left: 132px; right: auto; }
+
+#back-home:hover, #start-vr:hover {
+	background: rgba(245, 247, 250, 0.9);
+	transform: translateY(-2px);
+}
+
+/* ===== ADHS Control Panel (Desktop-Debug/Info) =====
+	Diese Box ist absichtlich "glasig" (Blur + Border) und wirkt wie ein HUD.
+	In VR wird sie über .in-vr ausgeblendet.
+*/
+#adhs-controls {
+	position: fixed;
+	bottom: 24px;
+	right: 24px;
+	background: rgba(245, 247, 250, 0.78);
+	backdrop-filter: blur(26px);
+	border: 1px solid rgba(255, 255, 255, 0.55);
+	border-radius: 22px;
+	padding: 20px;
+	color: var(--text-primary);
+	font-size: 13px;
+	z-index: 1000;
+	max-width: 340px;
+	box-shadow:
+		-10px -10px 22px rgba(255, 255, 255, 0.70),
+		10px 10px 26px rgba(15, 23, 42, 0.14),
+		inset 1px 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+
+/* ===== Quest Look in VR (dark glass) ===== */
+.in-vr #todo-ui {
+	background: rgba(17, 24, 39, 0.76);
+	border-color: rgba(148, 163, 184, 0.22);
+	box-shadow: 0 18px 46px rgba(0,0,0,0.38);
+	backdrop-filter: blur(18px);
+	-webkit-backdrop-filter: blur(18px);
+	color: rgba(226, 232, 240, 0.95);
+}
+
+.in-vr #todo-ui .hud-title {
+	color: rgba(226, 232, 240, 0.96);
+}
+
+.in-vr #todo-ui .hud-subtitle {
+	color: rgba(226, 232, 240, 0.74);
+}
+
+.in-vr #todo-ui .hud-chip {
+	border-color: rgba(148, 163, 184, 0.24);
+	background: rgba(15, 23, 42, 0.46);
+	color: rgba(226, 232, 240, 0.86);
+	box-shadow: none;
+}
+
+.in-vr #todo-ui .hud-chip-level.lvl-off {
+	background: rgba(16, 185, 129, 0.12);
+	border-color: rgba(16, 185, 129, 0.26);
+}
+.in-vr #todo-ui .hud-chip-level.lvl-1 {
+	background: rgba(251, 191, 36, 0.14);
+	border-color: rgba(251, 191, 36, 0.28);
+}
+.in-vr #todo-ui .hud-chip-level.lvl-2 {
+	background: rgba(245, 158, 11, 0.14);
+	border-color: rgba(245, 158, 11, 0.28);
+}
+.in-vr #todo-ui .hud-chip-level.lvl-3 {
+	background: rgba(239, 68, 68, 0.14);
+	border-color: rgba(239, 68, 68, 0.30);
+}
+
+.in-vr #todo-ui .todo-item {
+	border-color: rgba(148, 163, 184, 0.20);
+	background: rgba(15, 23, 42, 0.38);
+	box-shadow: none;
+}
+
+.in-vr #todo-ui .todo-text {
+	color: rgba(226, 232, 240, 0.92);
+}
+
+.in-vr #todo-ui .todo-progress {
+	color: rgba(226, 232, 240, 0.62);
+}
+
+.in-vr #todo-ui .todo-item.todo-warn { background: rgba(251, 191, 36, 0.12); }
+.in-vr #todo-ui .todo-item.todo-urgent { background: rgba(239, 68, 68, 0.12); }
+
+.in-vr #todo-ui .todo-item.is-active {
+	border-color: rgba(59, 130, 246, 0.45);
+	box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18);
+}
+
+/* Help block inside the same panel */
+.in-vr #todo-ui .hud-help {
+	margin-top: 10px;
+	border-top: 1px solid rgba(148, 163, 184, 0.18);
+	padding-top: 10px;
+}
+
+.in-vr #todo-ui .hud-help > summary {
+	cursor: pointer;
+	font-weight: 800;
+	color: rgba(226, 232, 240, 0.90);
+	list-style: none;
+}
+
+.in-vr #todo-ui .hud-help > summary::-webkit-details-marker {
+	display: none;
+}
+
+.in-vr #todo-ui .hud-help__body {
+	margin-top: 8px;
+	color: rgba(226, 232, 240, 0.78);
+	font-size: 12.5px;
+	line-height: 1.4;
+}
+
+/* Top row spacing */
+#todo-ui .hud-toprow {
+	margin: -2px 0 10px 0;
+}
+
+body.scene-page #adhs-controls {
+	bottom: 64px;
+}
+
+body.scene-page .app-footer {
+	left: 24px;
+	right: 24px;
+}
+
+#adhs-controls hr {
+	border: none;
+	height: 1px;
+	margin: 14px 0;
+	background: linear-gradient(90deg, rgba(15, 23, 42, 0.00), rgba(15, 23, 42, 0.10), rgba(15, 23, 42, 0.00));
+}
+
+/* Small key buttons (+/-/O) like a videogame HUD */
+#adhs-controls .keyboard-controls button {
+	width: 34px;
+	height: 34px;
+	padding: 0;
+	margin: 0 8px 0 0;
+	border-radius: 12px;
+	border: 1px solid rgba(255, 255, 255, 0.55);
+	background: rgba(245, 247, 250, 0.78);
+	color: var(--text-primary);
+	font-weight: 800;
+	box-shadow:
+		-8px -8px 18px rgba(255, 255, 255, 0.65),
+		8px 8px 20px rgba(15, 23, 42, 0.14);
+	transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+#adhs-controls .keyboard-controls button:hover {
+	transform: translateY(-1px);
+}
+
+#adhs-controls button {
+	background: rgba(245, 247, 250, 0.78);
+	color: var(--text-primary);
+	border: 1px solid rgba(255, 255, 255, 0.55);
+	border-radius: 16px;
+	box-shadow:
+		-10px -10px 22px rgba(255, 255, 255, 0.70),
+		10px 10px 26px rgba(15, 23, 42, 0.14);
+	width: auto;
+}
+
+#adhs-controls h3 {
+	margin: 0 0 12px;
+	font-size: 16px;
+	font-weight: 600;
+	color: var(--accent-purple);
+}
+
+#adhs-level {
+	padding: 4px 10px;
+	border-radius: 6px;
+	background: rgba(16, 185, 129, 0.1);
+	color: #10b981;
+	font-weight: 600;
+	display: inline-block;
+}
+
+#adhs-controls .keyboard-controls {
+	font-size: 12px;
+	line-height: 1.6;
+	color: var(--text-secondary);
+	margin: 10px 0;
+}
+
+#adhs-controls kbd {
+	background: rgba(255, 255, 255, 0.6);
+	padding: 3px 8px;
+	border-radius: 4px;
+	border: 1px solid rgba(0, 0, 0, 0.08);
+	font-family: 'SF Mono', monospace;
+	font-size: 11px;
+	font-weight: 600;
+}
+
+#adhs-controls button {
+	/* "Stop" Button: bewusst signal-rot, damit klar ist, was er tut */
+	margin-top: 10px;
+	padding: 8px 12px;
+	background: linear-gradient(135deg, #ff453a 0%, #d32f2f 100%);
+	border: none;
+	border-radius: 8px;
+	color: white;
+	cursor: pointer;
+	font-size: 12px;
+	font-weight: 600;
+	width: 100%;
+	transition: all 0.2s;
+}
+
+#adhs-controls button:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 4px 12px rgba(255, 69, 58, 0.3);
+}
+
+/* ===== To-Do/HUD Content =====
+	Die To-Do-Liste wird als HUD-Card gerendert (im DOM-Overlay).
+	"Chips" sind kleine Status-Indikatoren (Streak/Spiral/Focus).
+*/
+#todo-ui .hud-title {
+	font-size: 14px;
+	font-weight: 800;
+	letter-spacing: 0.02em;
+	color: #334155;
+	margin-bottom: 10px;
+}
+
+#todo-ui .hud-subtitle {
+	font-size: 12px;
+	font-weight: 700;
+	color: rgba(51, 65, 85, 0.78);
+	margin: -6px 0 10px 0;
+	letter-spacing: 0.01em;
+}
+
+#todo-ui .hud-metrics {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin: -2px 0 12px 0;
+}
+
+#todo-ui .hud-chip {
+	font-size: 11px;
+	font-weight: 700;
+	color: rgba(15, 23, 42, 0.78);
+	padding: 6px 10px;
+	border-radius: 999px;
+	border: 1px solid rgba(255, 255, 255, 0.55);
+	background: rgba(248, 250, 252, 0.72);
+	box-shadow:
+		-6px -6px 14px rgba(255, 255, 255, 0.65),
+		6px 6px 14px rgba(15, 23, 42, 0.10);
+}
+
+#todo-ui .hud-chip strong {
+	font-weight: 900;
+}
+
+#todo-ui .hud-chip-streak {
+	/* Lila: "Streak" (dranbleiben) */
+	background: rgba(167, 139, 250, 0.16);
+	border-color: rgba(167, 139, 250, 0.35);
+}
+
+#todo-ui .hud-chip-spiral {
+	/* Rot: "Spiral" (Stress-/Ablenkungs-Spirale) */
+	background: rgba(239, 68, 68, 0.12);
+	border-color: rgba(239, 68, 68, 0.28);
+}
+
+#todo-ui .hud-chip-focus {
+	/* Grün: Fokus-/Refokus-Feedback */
+	background: rgba(16, 185, 129, 0.14);
+	border-color: rgba(16, 185, 129, 0.28);
+}
+
+#todo-ui .todo-item {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 10px 12px;
+	border-radius: 14px;
+	margin-bottom: 8px;
+	border: 1px solid rgba(255, 255, 255, 0.55);
+	background: rgba(248, 250, 252, 0.72);
+	box-shadow:
+		-8px -8px 16px rgba(255, 255, 255, 0.65),
+		8px 8px 18px rgba(15, 23, 42, 0.10);
+}
+
+/* Farb-Codierung für "Druck"/Priorität */
+#todo-ui .todo-item.todo-warn { background: rgba(254, 243, 199, 0.78); }
+#todo-ui .todo-item.todo-urgent { background: rgba(254, 226, 226, 0.76); }
+
+#todo-ui .todo-checkbox {
+	font-size: 14px;
+	width: 18px;
+	text-align: center;
+	color: #10b981;
+	font-weight: 800;
+	cursor: pointer;
+	transition: transform 0.15s ease, color 0.15s ease;
+	flex-shrink: 0;
+}
+
+#todo-ui .todo-item:hover .todo-checkbox {
+	transform: scale(1.1);
+}
+
+#todo-ui .todo-icon {
+	font-size: 16px;
+	width: 22px;
+	text-align: center;
+}
+
+#todo-ui .todo-text {
+	color: #334155;
+	font-size: 13px;
+	transition: opacity 0.2s ease, text-decoration 0.2s ease;
+}
+
+#todo-ui .todo-item.is-completed .todo-text {
+	/* Completed: visuell zurücknehmen (nicht komplett ausblenden) */
+	opacity: 0.5;
+	text-decoration: line-through;
+	color: #94a3b8;
+}
+
+#todo-ui .todo-item.is-completed .todo-icon {
+	opacity: 0.4;
+}
+
+#todo-ui .todo-progress {
+	margin-left: auto;
+	font-size: 12px;
+	font-weight: 800;
+	color: rgba(15, 23, 42, 0.55);
+}
+
+#todo-ui .todo-item.is-completed .todo-progress {
+	opacity: 0.4;
+}
+
+#todo-ui .todo-item.is-active {
+	/* Active: aktuell "im Fokus" (Outline + sanfter Glow) */
+	border: 1px solid rgba(167, 139, 250, 0.55);
+	box-shadow:
+		-10px -10px 22px rgba(255, 255, 255, 0.70),
+		10px 10px 26px rgba(15, 23, 42, 0.14),
+		0 0 0 3px rgba(167, 139, 250, 0.14);
+}
+
+/* HUD-Card Stil (geteilt mit To-Do)
+	Eine gemeinsame "Glas"-Card: gleiche Border/Blur/Schatten, damit UI konsistent wirkt.
+*/
+.hud-card,
+#todo-ui {
+	background: rgba(245, 247, 250, 0.78);
+	backdrop-filter: blur(26px);
+	border: 1px solid rgba(255, 255, 255, 0.55);
+	border-radius: 22px;
+	box-shadow:
+		-10px -10px 22px rgba(255, 255, 255, 0.70),
+		10px 10px 26px rgba(15, 23, 42, 0.14),
+		inset 1px 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+#todo-ui {
+	/* Links unten, damit es nicht mit #adhs-controls (rechts unten) kollidiert */
+	left: 24px;
+	bottom: 24px;
+	min-width: 260px;
+	max-width: 360px;
+	padding: 18px 22px 16px 22px;
+	color: var(--text-primary);
+}
+
+@media (max-width: 767px) {
+	/* Mobile: Buttons/Panel komprimieren, damit nichts abgeschnitten wird */
+	#back-home, #start-vr { top: 10px; padding: 8px 14px; font-size: 12px; }
+	#back-home { left: 10px; }
+	#start-vr { left: 110px; right: auto; }
+	#adhs-controls { bottom: 10px; right: 10px; left: 10px; max-width: none; padding: 16px; }
+}
+
+@media (hover: none) and (pointer: coarse) {
+	/* Touch-Geräte: größere Tap-Flächen + weniger "Tap-Flash" */
+	#back-home, #start-vr, #adhs-controls button {
+		min-height: 44px;
+		-webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+	}
+}
+
+@media print {
+	/* Druck: Interaktive UI-Overlays ausblenden */
+	#back-home, #start-vr, #adhs-controls { display: none; }
+}
+
+/* Session Summary (wird beim Stop angezeigt) */
+.adhs-summary {
+	position: fixed;
+	left: 50%;
+	/* Auf kleinen Screens Abstand zu den Buttons oben links halten */
+	top: clamp(86px, 18vh, 180px);
+	transform: translateX(-50%);
+	/* Muss über #back-home/#start-vr (z-index: 1001) und dem Overlay-Root liegen */
+	z-index: 10050;
+	pointer-events: auto;
+	min-width: 320px;
+	max-width: 440px;
+	padding: 16px 18px 14px 18px;
+	color: var(--text-primary);
+}
+
+.adhs-summary.is-hiding {
+	opacity: 0;
+	transform: translateX(-50%) translateY(-6px);
+	transition: opacity 0.20s ease, transform 0.20s ease;
+}
+
+.adhs-summary__head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	margin-bottom: 10px;
+}
+
+.adhs-summary__title {
+	font-weight: 900;
+	font-size: 14px;
+	letter-spacing: 0.2px;
+}
+
+.adhs-summary__close {
+	width: 32px;
+	height: 32px;
+	border-radius: 12px;
+	border: 1px solid rgba(255, 255, 255, 0.55);
+	background: rgba(245, 247, 250, 0.78);
+	color: var(--text-primary);
+	font-size: 18px;
+	line-height: 28px;
+	font-weight: 900;
+	cursor: pointer;
+}
+
+.adhs-summary__close:hover {
+	transform: translateY(-1px);
+}
+
+.adhs-summary__body {
+	display: grid;
+	gap: 6px;
+}
+
+.adhs-summary__line {
+	font-size: 13px;
+	color: rgba(15, 23, 42, 0.82);
+}
+
+.adhs-summary__hint {
+	margin-top: 10px;
+	font-size: 12px;
+	color: rgba(15, 23, 42, 0.60);
+}
