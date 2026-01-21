@@ -115,6 +115,9 @@ export class ADHSSimulation {
         } catch (e) {
             this._debugNotif = false;
         }
+
+        // VR-HUD früh initialisieren, damit das Interface im Headset sofort mitwandert.
+        try { this.installVrHudOnce(); } catch (e) {}
     }
 
     _ensureDebugNotifBadge() {
@@ -1093,6 +1096,9 @@ export class ADHSSimulation {
                     this.updateVrHud();
                 }, 1200);
             }
+
+            // Zeige eine ausführliche Welcome-Card mit Steuerungshinweisen.
+            setTimeout(() => this.showVrWelcomeCard({ autoHideMs: 18000 }), 700);
         });
 
         scene.addEventListener('exit-vr', () => {
@@ -1106,13 +1112,18 @@ export class ADHSSimulation {
                 const old = document.getElementById('adhs-vr-start-hint');
                 if (old && old.parentNode) old.parentNode.removeChild(old);
             } catch (e) {}
+
+            try {
+                const welcome = document.getElementById('adhs-vr-welcome');
+                if (welcome && welcome.parentNode) welcome.parentNode.removeChild(welcome);
+            } catch (e) {}
         });
     }
 
     getPreferredVrHudScale() {
         if (this._vrHudScalePreference) return this._vrHudScalePreference;
 
-        let scale = 1.35;
+        let scale = 1.6;
         try {
             if (typeof window !== 'undefined') {
                 if (typeof window.__DESYNC_VR_HUD_SCALE !== 'undefined') {
@@ -1226,6 +1237,47 @@ export class ADHSSimulation {
         } catch (e) {
             // ignorieren
         }
+
+    showVrWelcomeCard(opts = {}) {
+        try {
+            const scene = document.querySelector('a-scene');
+            if (!scene) return;
+
+            const autoHideMs = Math.max(8000, Number(opts.autoHideMs) || 18000);
+            try {
+                const existing = document.getElementById('adhs-vr-welcome');
+                if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+            } catch (e) {}
+
+            const card = document.createElement('a-entity');
+            card.setAttribute('id', 'adhs-vr-welcome');
+            card.setAttribute('scale', '1.2 1.2 1.2');
+            card.setAttribute('hud-stabilize', 'distance: 1.05; height: 0.30; followSpeed: 0.2; yawOnly: true');
+
+            const commonMat = 'shader:flat; transparent:true; depthTest:false; depthWrite:false';
+            const controlLines = 'Trigger · Buttons tippen\nThumbstick · HUD ausrichten\nA · Start/Stop\nB · Nachgeben melden\nX/Y · Level ±\nGrip · Aufgabenfokus halten';
+
+            card.innerHTML = `
+                <a-plane width="1.20" height="0.64" material="color:#020617; opacity:0.94; ${commonMat}" position="0 0 -0.004"></a-plane>
+                <a-plane width="1.20" height="0.012" material="color:#38bdf8; opacity:0.98; ${commonMat}" position="0 0.275 0"></a-plane>
+                <a-troika-text value="Willkommen in DeSync VR" max-width="1.08" font-size="0.060" color="#f8fafc" position="-0.50 0.205 0.006" align="left" anchor="left" baseline="center"></a-troika-text>
+                <a-troika-text value="So steuerst du im Headset:" max-width="1.08" font-size="0.034" color="#e2e8f0" position="-0.50 0.145 0.006" align="left" anchor="left" baseline="center"></a-troika-text>
+                <a-troika-text value="${controlLines}" max-width="1.08" font-size="0.030" color="#cbd5e1" position="-0.50 0.020 0.006" align="left" anchor="left" baseline="top" line-height="1.25"></a-troika-text>
+                <a-troika-text value="Ziel: Aufgaben fokussieren, Ablenkungen wahrnehmen und mit Refocus reagieren." max-width="1.10" font-size="0.030" color="#f8fafc" position="-0.50 -0.210 0.006" align="left" anchor="left" baseline="center"></a-troika-text>
+                <a-troika-text value="Hinweis blendet sich gleich automatisch aus." max-width="1.10" font-size="0.024" color="#cbd5e1" position="-0.50 -0.255 0.006" align="left" anchor="left" baseline="center"></a-troika-text>
+            `;
+
+            scene.appendChild(card);
+
+            const hide = () => {
+                try {
+                    if (card && card.parentNode) card.parentNode.removeChild(card);
+                } catch (e) {}
+            };
+
+            setTimeout(hide, autoHideMs);
+        } catch (e) {}
+    }
     }
 
     runVrHudAction(action) {
@@ -1326,8 +1378,8 @@ export class ADHSSimulation {
             if (textId) txt.setAttribute('id', textId);
             txt.setAttribute('value', label);
             txt.setAttribute('max-width', '0.16');
-            txt.setAttribute('font-size', '0.030');
-            txt.setAttribute('color', '#e2e8f0');
+            txt.setAttribute('font-size', '0.036');
+            txt.setAttribute('color', '#f8fafc');
             txt.setAttribute('position', '0 0 0.01');
             txt.setAttribute('align', 'center');
             txt.setAttribute('anchor', 'center');
@@ -1348,8 +1400,8 @@ export class ADHSSimulation {
         help.setAttribute('id', 'vr-hud-controls-help');
         help.setAttribute('value', 'Laser + Trigger · A Start/Stop · B Nachgeben · X/Y Level · Stick ±');
         help.setAttribute('max-width', '1.0');
-        help.setAttribute('font-size', '0.020');
-        help.setAttribute('color', '#94a3b8');
+        help.setAttribute('font-size', '0.024');
+        help.setAttribute('color', '#cbd5e1');
         help.setAttribute('position', '0 -0.065 0.01');
         help.setAttribute('align', 'center');
         help.setAttribute('anchor', 'center');
@@ -1375,7 +1427,7 @@ export class ADHSSimulation {
         const hudScale = this.getPreferredVrHudScale();
         this._vrHudScaleActive = hudScale;
         root.setAttribute('scale', `${hudScale} ${hudScale} ${hudScale}`);
-        root.setAttribute('hud-stabilize', 'distance: 1.6; height: 0.08; followSpeed: 0.08; yawOnly: true');
+        root.setAttribute('hud-stabilize', 'distance: 1.25; height: 0.12; followSpeed: 0.18; yawOnly: true');
 
         const commonMat = 'shader:flat; transparent:true; depthTest:false; depthWrite:false';
 
@@ -1386,34 +1438,34 @@ export class ADHSSimulation {
         todoPanel.setAttribute('id', 'vr-hud-todo-panel');
         todoPanel.setAttribute('position', '-0.55 -0.30 0.01');
         todoPanel.innerHTML = `
-            <a-plane width="0.860" height="0.520" material="color:#0b1220; opacity:0.78; ${commonMat}" position="0 0 -0.004"></a-plane>
-            <a-plane width="0.860" height="0.012" material="color:#38bdf8; opacity:0.92; ${commonMat}" position="0 0.245 0.000"></a-plane>
-            <a-troika-text value="📝 To-Do" max-width="0.82" font-size="0.040" color="#e2e8f0" position="-0.38 0.200 0.006" align="left" anchor="left" baseline="center"></a-troika-text>
-            <a-troika-text id="vr-hud-subtitle-text" value="" max-width="0.82" font-size="0.024" color="#cbd5e1" position="-0.38 0.160 0.006" align="left" anchor="left" baseline="center" fill-opacity="0.92"></a-troika-text>
-            <a-troika-text id="vr-hud-metrics-text" value="" max-width="0.82" font-size="0.022" color="#94a3b8" position="-0.38 0.125 0.006" align="left" anchor="left" baseline="center" fill-opacity="0.90"></a-troika-text>
-            <a-troika-text id="vr-hud-todo-text" value="" max-width="0.82" font-size="0.026" color="#94a3b8" position="-0.38 0.085 0.006" align="left" anchor="left" baseline="top" line-height="1.30" fill-opacity="0.92"></a-troika-text>
+            <a-plane width="0.860" height="0.520" material="color:#060c1c; opacity:0.88; ${commonMat}" position="0 0 -0.004"></a-plane>
+            <a-plane width="0.860" height="0.012" material="color:#38bdf8; opacity:0.98; ${commonMat}" position="0 0.245 0.000"></a-plane>
+            <a-troika-text value="📝 To-Do" max-width="0.82" font-size="0.050" color="#f8fafc" position="-0.36 0.205 0.006" align="left" anchor="left" baseline="center"></a-troika-text>
+            <a-troika-text id="vr-hud-subtitle-text" value="" max-width="0.82" font-size="0.030" color="#e2e8f0" position="-0.36 0.163 0.006" align="left" anchor="left" baseline="center" fill-opacity="0.96"></a-troika-text>
+            <a-troika-text id="vr-hud-metrics-text" value="" max-width="0.82" font-size="0.026" color="#cbd5e1" position="-0.36 0.128 0.006" align="left" anchor="left" baseline="center" fill-opacity="0.94"></a-troika-text>
+            <a-troika-text id="vr-hud-todo-text" value="" max-width="0.82" font-size="0.034" color="#e2e8f0" position="-0.36 0.082 0.006" align="left" anchor="left" baseline="top" line-height="1.25" fill-opacity="0.96"></a-troika-text>
         `;
 
         const levelPanel = document.createElement('a-entity');
         levelPanel.setAttribute('id', 'vr-hud-level-panel');
         levelPanel.setAttribute('position', '0.55 -0.30 0.01');
         levelPanel.innerHTML = `
-            <a-plane width="0.700" height="0.520" material="color:#0b1220; opacity:0.78; ${commonMat}" position="0 0 -0.004"></a-plane>
+            <a-plane width="0.700" height="0.520" material="color:#060c1c; opacity:0.88; ${commonMat}" position="0 0 -0.004"></a-plane>
             <a-plane width="0.700" height="0.012" material="color:#38bdf8; opacity:0.92; ${commonMat}" position="0 0.245 0.000"></a-plane>
-            <a-troika-text value="🎮 ADHS" max-width="0.62" font-size="0.038" color="#e2e8f0" position="-0.26 0.205 0.006" align="left" anchor="left" baseline="center"></a-troika-text>
-            <a-troika-text value="Intensität:" max-width="0.62" font-size="0.026" color="#cbd5e1" position="-0.26 0.150 0.006" align="left" anchor="left" baseline="center" fill-opacity="0.88"></a-troika-text>
+            <a-troika-text value="🎮 ADHS" max-width="0.62" font-size="0.046" color="#f8fafc" position="-0.26 0.205 0.006" align="left" anchor="left" baseline="center"></a-troika-text>
+            <a-troika-text value="Intensität:" max-width="0.62" font-size="0.032" color="#e2e8f0" position="-0.26 0.150 0.006" align="left" anchor="left" baseline="center" fill-opacity="0.94"></a-troika-text>
 
             <a-plane id="vr-hud-level-chip-border" width="0.286" height="0.091" material="color:#1f2937; opacity:0.78; ${commonMat}" position="0.152 0.110 -0.002"></a-plane>
             <a-plane id="vr-hud-level-chip" width="0.280" height="0.087" material="color:#0f172a; opacity:0.92; ${commonMat}" position="0.150 0.110 -0.001"></a-plane>
-            <a-troika-text id="vr-hud-level-chip-text" value="Aus" max-width="0.26" font-size="0.032" color="#e2e8f0" position="0.150 0.110 0.006" align="center" anchor="center" baseline="center"></a-troika-text>
+            <a-troika-text id="vr-hud-level-chip-text" value="Aus" max-width="0.26" font-size="0.038" color="#0b1220" position="0.150 0.110 0.006" align="center" anchor="center" baseline="center"></a-troika-text>
 
-            <a-troika-text id="vr-hud-focus-text" value="" max-width="0.62" font-size="0.022" color="#94a3b8" position="-0.26 0.050 0.006" align="left" anchor="left" baseline="center" fill-opacity="0.85"></a-troika-text>
-            <a-troika-text id="vr-hud-active-task-text" value="" max-width="0.62" font-size="0.026" color="#e2e8f0" position="-0.26 0.010 0.006" align="left" anchor="left" baseline="center"></a-troika-text>
+            <a-troika-text id="vr-hud-focus-text" value="" max-width="0.62" font-size="0.028" color="#cbd5e1" position="-0.26 0.055 0.006" align="left" anchor="left" baseline="center" fill-opacity="0.92"></a-troika-text>
+            <a-troika-text id="vr-hud-active-task-text" value="" max-width="0.62" font-size="0.032" color="#f8fafc" position="-0.26 0.012 0.006" align="left" anchor="left" baseline="center"></a-troika-text>
 
-            <a-plane width="0.56" height="0.025" material="color:#0f172a; opacity:0.45; ${commonMat}" position="-0.01 -0.060 0"></a-plane>
+            <a-plane width="0.56" height="0.028" material="color:#0f172a; opacity:0.55; ${commonMat}" position="-0.01 -0.060 0"></a-plane>
             <a-plane id="vr-hud-stress-fill" width="0.01" height="0.025" material="color:#10b981; opacity:0.92; ${commonMat}" position="-0.270 -0.060 0.001"></a-plane>
-            <a-troika-text id="vr-hud-stress-text" value="Stress: 0%" max-width="0.62" font-size="0.022" color="#94a3b8" position="-0.26 -0.110 0.006" align="left" anchor="left" baseline="center" fill-opacity="0.85"></a-troika-text>
-            <a-troika-text id="vr-hud-meta-text" value="" max-width="0.62" font-size="0.020" color="#64748b" position="-0.26 -0.155 0.006" align="left" anchor="left" baseline="center" fill-opacity="0.80"></a-troika-text>
+            <a-troika-text id="vr-hud-stress-text" value="Stress: 0%" max-width="0.62" font-size="0.026" color="#cbd5e1" position="-0.26 -0.110 0.006" align="left" anchor="left" baseline="center" fill-opacity="0.9"></a-troika-text>
+            <a-troika-text id="vr-hud-meta-text" value="" max-width="0.62" font-size="0.024" color="#94a3b8" position="-0.26 -0.155 0.006" align="left" anchor="left" baseline="center" fill-opacity="0.86"></a-troika-text>
         `;
 
         root.appendChild(todoPanel);
@@ -1463,7 +1515,7 @@ export class ADHSSimulation {
         const hudScale = this.getPreferredVrHudScale();
         this._vrHudScaleActive = hudScale;
         root.setAttribute('scale', `${hudScale} ${hudScale} ${hudScale}`);
-        root.setAttribute('hud-stabilize', 'distance: 1.6; height: 0.08; followSpeed: 0.08; yawOnly: true');
+        root.setAttribute('hud-stabilize', 'distance: 1.25; height: 0.12; followSpeed: 0.18; yawOnly: true');
 
         const commonMat = 'shader:flat; transparent:true; depthTest:false; depthWrite:false';
 
@@ -1639,6 +1691,7 @@ export class ADHSSimulation {
         const aspect = cam.aspect || ((scene && scene.renderer && scene.renderer.domElement) ? (scene.renderer.domElement.clientWidth / scene.renderer.domElement.clientHeight) : 1);
         const halfW = halfH * (aspect || 1);
         const margin = 0.10;
+        const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
         // Panel sizes (in A-Frame units / meters)
         const scale = this._vrHudScaleActive || 1;
@@ -1651,21 +1704,24 @@ export class ADHSSimulation {
         const yTop = halfH - margin;
         const yBottom = -halfH + margin;
 
-        // Env/Room panel removed -> give bottom panels a bit more breathing room.
-        const liftBottomPanels = 0.06;
-        const raiseHud = 0.24;
+        // Panels sollen näher beieinander bleiben, damit alles im Fokus bleibt.
+        const liftBottomPanels = 0.12;
+        const raiseHud = 0.32;
+        const targetSpread = 0.55 * scale;
 
-        const todoX = xLeft + todoW / 2;
+        const todoTargetX = -targetSpread;
+        const levelTargetX = targetSpread;
+        const todoX = clamp(todoTargetX, xLeft + todoW / 2, xRight - todoW / 2);
         const todoY = yBottom + todoH / 2 + liftBottomPanels + raiseHud;
         todoPanel.setAttribute('position', `${todoX.toFixed(3)} ${todoY.toFixed(3)} 0.01`);
 
-        const levelX = xRight - levelW / 2;
+        const levelX = clamp(levelTargetX, xLeft + levelW / 2, xRight - levelW / 2);
         const levelY = yBottom + levelH / 2 + liftBottomPanels + raiseHud;
         levelPanel.setAttribute('position', `${levelX.toFixed(3)} ${levelY.toFixed(3)} 0.01`);
 
         if (controlsPanel) {
             const controlsX = 0;
-            const controlsY = yBottom + levelH + controlsH / 2 + 0.06 + liftBottomPanels + raiseHud;
+            const controlsY = yBottom + Math.max(levelH, todoH) + controlsH / 2 + 0.12 + liftBottomPanels + raiseHud;
             controlsPanel.setAttribute('position', `${controlsX.toFixed(3)} ${controlsY.toFixed(3)} 0.01`);
         }
 
