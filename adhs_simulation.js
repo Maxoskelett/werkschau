@@ -1065,7 +1065,8 @@ export class ADHSSimulation {
             } catch (e) {
                 // ignorieren
             }
-        };
+
+        }
 
         if (!this._vrStateSyncInterval) {
             this._vrStateSyncInterval = setInterval(syncVrState, 450);
@@ -1237,6 +1238,7 @@ export class ADHSSimulation {
         } catch (e) {
             // ignorieren
         }
+    }
 
     showVrWelcomeCard(opts = {}) {
         try {
@@ -1277,7 +1279,6 @@ export class ADHSSimulation {
 
             setTimeout(hide, autoHideMs);
         } catch (e) {}
-    }
     }
 
     runVrHudAction(action) {
@@ -2821,7 +2822,7 @@ export class ADHSSimulation {
             } catch(e) {}
             this.neighborhoodNoiseAudio = null;
         }
-    }
+        }
 
     // =============================================================
     // Supermarkt-Ambience (Loop)
