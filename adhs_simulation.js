@@ -1109,6 +1109,30 @@ export class ADHSSimulation {
         });
     }
 
+    getPreferredVrHudScale() {
+        if (this._vrHudScalePreference) return this._vrHudScalePreference;
+
+        let scale = 1.35;
+        try {
+            if (typeof window !== 'undefined') {
+                if (typeof window.__DESYNC_VR_HUD_SCALE !== 'undefined') {
+                    const custom = Number(window.__DESYNC_VR_HUD_SCALE);
+                    if (!Number.isNaN(custom) && custom > 0) scale = custom;
+                } else if (window.location && window.location.search) {
+                    const params = new URLSearchParams(window.location.search);
+                    const qsValue = params.get('vrHudScale');
+                    if (qsValue !== null) {
+                        const parsed = Number(qsValue);
+                        if (!Number.isNaN(parsed) && parsed > 0) scale = parsed;
+                    }
+                }
+            }
+        } catch (e) {}
+
+        this._vrHudScalePreference = Math.max(1.0, Math.min(2.2, scale));
+        return this._vrHudScalePreference;
+    }
+
     showVrStartHint(opts = {}) {
         try {
             const scene = document.querySelector('a-scene');
@@ -1348,8 +1372,10 @@ export class ADHSSimulation {
         root.setAttribute('id', 'vr-hud');
         root.setAttribute('position', '0 0 0');
         root.setAttribute('rotation', '0 0 0');
-        root.setAttribute('scale', '1 1 1');
-        root.setAttribute('hud-stabilize', 'distance: 1.6; height: 0.05; followSpeed: 0.08; yawOnly: true');
+        const hudScale = this.getPreferredVrHudScale();
+        this._vrHudScaleActive = hudScale;
+        root.setAttribute('scale', `${hudScale} ${hudScale} ${hudScale}`);
+        root.setAttribute('hud-stabilize', 'distance: 1.6; height: 0.08; followSpeed: 0.08; yawOnly: true');
 
         const commonMat = 'shader:flat; transparent:true; depthTest:false; depthWrite:false';
 
@@ -1434,8 +1460,10 @@ export class ADHSSimulation {
         // Stabilized HUD: folgt der Kamera weich, bleibt lesbar
         root.setAttribute('position', '0 0 0');
         root.setAttribute('rotation', '0 0 0');
-        root.setAttribute('scale', '1 1 1');
-        root.setAttribute('hud-stabilize', 'distance: 1.6; height: 0.05; followSpeed: 0.08; yawOnly: true');
+        const hudScale = this.getPreferredVrHudScale();
+        this._vrHudScaleActive = hudScale;
+        root.setAttribute('scale', `${hudScale} ${hudScale} ${hudScale}`);
+        root.setAttribute('hud-stabilize', 'distance: 1.6; height: 0.08; followSpeed: 0.08; yawOnly: true');
 
         const commonMat = 'shader:flat; transparent:true; depthTest:false; depthWrite:false';
 
@@ -1577,6 +1605,7 @@ export class ADHSSimulation {
             if (this._vrHud.parentNode) this._vrHud.parentNode.removeChild(this._vrHud);
         } catch (e) {}
         this._vrHud = null;
+        this._vrHudScaleActive = null;
 
         try {
             if (this._vrHudOnResize) {
@@ -1612,10 +1641,10 @@ export class ADHSSimulation {
         const margin = 0.10;
 
         // Panel sizes (in A-Frame units / meters)
-        const todoW = 0.86, todoH = 0.512;
-        const levelW = 0.66, levelH = 0.492;
-        const topW = 0.66, topH = 0.18;
-        const controlsW = 1.02, controlsH = 0.18;
+        const scale = this._vrHudScaleActive || 1;
+        const todoW = 0.86 * scale, todoH = 0.512 * scale;
+        const levelW = 0.66 * scale, levelH = 0.492 * scale;
+        const controlsW = 1.02 * scale, controlsH = 0.18 * scale;
 
         const xLeft = -halfW + margin;
         const xRight = halfW - margin;

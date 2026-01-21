@@ -48,6 +48,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (hasPointerLock()) enablePointerLock(scene);
 
+  ensureRigFloorAlignment(scene);
+  installSpectatorMirror(scene);
+
   // Sauberer Rückweg: wenn VR endet, PointerLock lösen.
   scene.addEventListener('exit-vr', () => {
     try {
@@ -499,5 +502,141 @@ function enablePointerLock(scene) {
     attach();
   } else {
     scene.addEventListener('renderstart', attach, { once: true });
+  }
+}
+
+function ensureRigFloorAlignment(scene) {
+  if (!scene) return;
+
+  const init = () => {
+    const rig = scene.querySelector('#rig');
+    if (!rig || rig.__vrFloorAligned) return;
+
+    const desktopPos = cloneVector3Attr(rig.getAttribute('position'));
+    if (!desktopPos) return;
+
+    const setRigPosition = (pos) => {
+      if (!pos) return;
+      rig.setAttribute('position', {
+        x: Number(pos.x) || 0,
+        y: Number(pos.y) || 0,
+        z: Number(pos.z) || 0
+      });
+    };
+
+    const moveToVrFloor = () => {
+      setRigPosition({ x: desktopPos.x, y: 0, z: desktopPos.z });
+    };
+
+    const restoreDesktopPose = () => {
+      setRigPosition(desktopPos);
+    };
+
+    scene.addEventListener('enter-vr', moveToVrFloor);
+    scene.addEventListener('exit-vr', restoreDesktopPose);
+
+    rig.__vrFloorAligned = true;
+  };
+
+  if (scene.hasLoaded) {
+    init();
+  } else {
+    scene.addEventListener('loaded', init, { once: true });
+  }
+}
+
+function cloneVector3Attr(attr) {
+  if (!attr) return null;
+  return {
+    x: typeof attr.x === 'number' ? attr.x : parseFloat(attr.x) || 0,
+    y: typeof attr.y === 'number' ? attr.y : parseFloat(attr.y) || 0,
+    z: typeof attr.z === 'number' ? attr.z : parseFloat(attr.z) || 0
+  };
+}
+
+function installSpectatorMirror(scene) {
+  if (!scene || scene.__desyncSpectatorInstalled) return;
+  scene.__desyncSpectatorInstalled = true;
+
+  const ensureElements = () => {
+    const host = document.getElementById('ui-overlay') || document.body;
+    if (!host) return {};
+
+    let wrapper = document.getElementById('spectator-monitor');
+    if (!wrapper) {
+      wrapper = document.createElement('div');
+      wrapper.id = 'spectator-monitor';
+      wrapper.innerHTML = '<video muted playsinline autoplay></video><div class="spectator-badge">Monitor</div>';
+      host.appendChild(wrapper);
+    }
+
+    const video = wrapper.querySelector('video');
+    if (video) {
+      video.autoplay = true;
+      video.muted = true;
+      video.playsInline = true;
+      video.setAttribute('playsinline', 'true');
+      video.setAttribute('muted', 'true');
+    }
+
+    return { wrapper, video };
+  };
+
+  let activeStream = null;
+
+  const stopMirror = () => {
+    if (activeStream) {
+      try {
+        activeStream.getTracks().forEach((track) => track.stop());
+      } catch (e) {
+        // ignore
+      }
+      activeStream = null;
+    }
+
+    const wrapper = document.getElementById('spectator-monitor');
+    const video = wrapper ? wrapper.querySelector('video') : null;
+    if (video) {
+      try {
+        video.pause();
+      } catch (e) {}
+      try {
+        video.srcObject = null;
+      } catch (e) {}
+    }
+    if (wrapper) wrapper.classList.remove('is-visible');
+  };
+
+  const startMirror = () => {
+    if (!scene.canvas || !scene.canvas.captureStream) return;
+    const nodes = ensureElements();
+    if (!nodes.wrapper || !nodes.video) return;
+
+    stopMirror();
+    try {
+      activeStream = scene.canvas.captureStream(30);
+      if (!activeStream) return;
+      nodes.video.srcObject = activeStream;
+      nodes.wrapper.classList.add('is-visible');
+      const playPromise = nodes.video.play();
+      if (playPromise && typeof playPromise.catch === 'function') playPromise.catch(() => {});
+    } catch (e) {
+      stopMirror();
+    }
+  };
+
+  const attach = () => {
+    scene.addEventListener('enter-vr', startMirror);
+    scene.addEventListener('exit-vr', stopMirror);
+    window.addEventListener('beforeunload', stopMirror);
+    window.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') stopMirror();
+    });
+  };
+
+  if (scene.hasLoaded) {
+    attach();
+  } else {
+    scene.addEventListener('loaded', attach, { once: true });
   }
 }
